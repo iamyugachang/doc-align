@@ -20,12 +20,17 @@ export function saveManifest(path, manifest) {
 function main(argv) {
   const [cmd, ...rest] = argv;
   const opts = { manifest: 'docs/.docalign.yml', watch: [] };
+  function takeValue(a, i) {
+    const v = rest[i];
+    if (v === undefined || v.startsWith('--')) throw new Error(`${a} requires a value`);
+    return v;
+  }
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i];
-    if (a === '--manifest') opts.manifest = rest[++i];
-    else if (a === '--doc') opts.doc = rest[++i];
-    else if (a === '--commit') opts.commit = rest[++i];
-    else if (a === '--watch') opts.watch.push(rest[++i]);
+    if (a === '--manifest') opts.manifest = takeValue(a, ++i);
+    else if (a === '--doc') opts.doc = takeValue(a, ++i);
+    else if (a === '--commit') opts.commit = takeValue(a, ++i);
+    else if (a === '--watch') opts.watch.push(takeValue(a, ++i));
     else throw new Error(`unknown arg: ${a}`);
   }
   if (cmd === 'read') {

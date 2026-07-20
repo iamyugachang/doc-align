@@ -15,38 +15,44 @@ export function changedScope({ manifest, range, full, cwd = '.' }) {
   const allChanged = new Set();
   for (const d of manifest.docs) {
     if (full) {
-      docs.push({ path: d.path, type: d.type, status: 'affected', reason: 'full scan', matchedFiles: [] });
+      docs.push({ path: d.path, type: d.type, status: 'affected', range: null, reason: 'full scan', matchedFiles: [] });
       continue;
     }
     const r = range ?? (d.last_verified ? `${d.last_verified}..HEAD` : null);
     if (!r) {
-      docs.push({ path: d.path, type: d.type, status: 'unverified', reason: 'no last_verified', matchedFiles: [] });
+      docs.push({ path: d.path, type: d.type, status: 'unverified', range: null, reason: 'no last_verified', matchedFiles: [] });
       continue;
     }
     let changed;
     try {
       changed = gitDiffFiles(r, cwd);
     } catch {
-      docs.push({ path: d.path, type: d.type, status: 'unverified', reason: `bad last_verified or range: ${r}`, matchedFiles: [] });
+      docs.push({ path: d.path, type: d.type, status: 'unverified', range: null, reason: `bad last_verified or range: ${r}`, matchedFiles: [] });
       continue;
     }
     changed.forEach((f) => allChanged.add(f));
     const matched = changed.filter((f) => matchesAny(f, d.watch ?? []));
-    docs.push({ path: d.path, type: d.type, status: matched.length ? 'affected' : 'clean', range: r, matchedFiles: matched });
+    docs.push({ path: d.path, type: d.type, status: matched.length ? 'affected' : 'clean', range: r, reason: null, matchedFiles: matched });
   }
   const watchAll = manifest.docs.flatMap((d) => d.watch ?? []);
+  // the doc set and manifest live under docs/ by design; doc edits are not code-coverage gaps
   const unmatchedFiles = [...allChanged].filter((f) => !matchesAny(f, watchAll) && !f.startsWith('docs/'));
   return { mode: full ? 'full' : range ? 'range' : 'per-doc', docs, unmatchedFiles };
 }
 
 function main(argv) {
   const opts = { manifest: 'docs/.docalign.yml', cwd: '.' };
+  function takeValue(a, i) {
+    const v = argv[i];
+    if (v === undefined || v.startsWith('--')) throw new Error(`${a} requires a value`);
+    return v;
+  }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--manifest') opts.manifest = argv[++i];
-    else if (a === '--range') opts.range = argv[++i];
+    if (a === '--manifest') opts.manifest = takeValue(a, ++i);
+    else if (a === '--range') opts.range = takeValue(a, ++i);
     else if (a === '--full') opts.full = true;
-    else if (a === '--repo') opts.cwd = argv[++i];
+    else if (a === '--repo') opts.cwd = takeValue(a, ++i);
     else throw new Error(`unknown arg: ${a}`);
   }
   const manifest = loadManifest(join(opts.cwd, opts.manifest));

@@ -90,3 +90,28 @@ test('bad last_verified degrades to unverified instead of crashing', () => {
   assert.equal(out.docs[0].status, 'unverified');
   assert.match(out.docs[0].reason, /bad last_verified/);
 });
+
+test('CLI rejects a trailing --range with no value', () => {
+  const { dir } = makeRepo();
+  assert.throws(() => execFileSync('node', [SCRIPT, '--repo', dir, '--range'],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+});
+
+test('files under docs/ are excluded from coverage gaps', () => {
+  const { dir } = makeRepo();
+  writeFileSync(join(dir, 'docs/notes.md'), 'notes\n');
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-m', 'add doc notes');
+  const out = run(dir);
+  assert.ok(!out.unmatchedFiles.includes('docs/notes.md'));
+});
+
+test('every docs entry has the same key set', () => {
+  const { dir } = makeRepo();
+  writeFileSync(join(dir, 'src/billing/refund.py'), 'def refund(x): return x\n');
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-m', 'change billing');
+  const out = run(dir);
+  const keySets = out.docs.map((d) => JSON.stringify(Object.keys(d).sort()));
+  assert.ok(keySets.every((k) => k === keySets[0]));
+});

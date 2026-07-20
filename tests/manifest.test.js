@@ -49,3 +49,11 @@ test('CLI set-watch replaces the watch list', () => {
     '--watch', 'src/billing/**', '--watch', 'src/notify/**']);
   assert.deepEqual(loadManifest(p).docs[0].watch, ['src/billing/**', 'src/notify/**']);
 });
+
+test('CLI set-watch rejects a trailing --watch with no value, leaving the file unchanged', () => {
+  const p = tmpManifest(VALID);
+  const before = readFileSync(p, 'utf8');
+  assert.throws(() => execFileSync('node', [SCRIPT, 'set-watch', '--manifest', p, '--doc', 'flows/refund.md', '--watch'],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+  assert.equal(readFileSync(p, 'utf8'), before);
+});
