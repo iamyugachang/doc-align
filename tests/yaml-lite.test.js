@@ -39,3 +39,7 @@ test('comments and blank lines are ignored', () => {
 test('unrecognized structure throws', () => {
   assert.throws(() => parse('foo:\n  bar: 1\n'), /unrecognized line/);
 });
+
+test('serialize throws on entry missing type', () => {
+  assert.throws(() => serialize({ docs: [{ path: 'x.md' }] }), /missing path\/type/);
+});

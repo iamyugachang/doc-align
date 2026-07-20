@@ -35,6 +35,9 @@ export function parse(text) {
 export function serialize({ docs }) {
   const lines = ['# managed by doc-align — edit via scripts/manifest.js', 'docs:'];
   for (const d of docs) {
+    if (!d.path || !d.type) {
+      throw new Error(`docalign manifest: entry missing path/type: ${JSON.stringify(d)}`);
+    }
     lines.push(`  - path: ${d.path}`);
     lines.push(`    type: ${d.type}`);
     if (d.watch?.length) {

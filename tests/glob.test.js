@@ -26,3 +26,23 @@ test('matchesAny checks a pattern list', () => {
   assert.ok(matchesAny('src/api/routes/refund.py', ['src/billing/**', 'src/api/routes/refund.py']));
   assert.ok(!matchesAny('README.md', ['src/**']));
 });
+
+test('? matches exactly one non-slash char', () => {
+  assert.ok(globToRegExp('src/?.py').test('src/a.py'));
+  assert.ok(!globToRegExp('src/?.py').test('src/ab.py'));
+  assert.ok(!globToRegExp('src/?.py').test('src//.py'));
+});
+
+test('mid-pattern ** crosses segments', () => {
+  assert.ok(globToRegExp('src/a**b.py').test('src/aXb.py'));
+  assert.ok(globToRegExp('src/a**b.py').test('src/a/deep/b.py'));
+  assert.ok(globToRegExp('src/**tests').test('src/tests'));
+  assert.ok(globToRegExp('src/**tests').test('src/foo/bar/tests'));
+});
+
+test('regex metacharacters in patterns are literal', () => {
+  assert.ok(globToRegExp('src/file(1)+x.py').test('src/file(1)+x.py'));
+  assert.ok(!globToRegExp('src/file(1)+x.py').test('src/file1x.py'));
+  assert.ok(globToRegExp('src/a+b.py').test('src/a+b.py'));
+  assert.ok(!globToRegExp('src/a+b.py').test('src/aab.py'));
+});
