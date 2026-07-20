@@ -17,3 +17,17 @@
     ln -sfn "$(pwd)/adapters/claude-code" ~/.claude/skills/doc-align
 
 之後在任一 repo 內使用 `/doc-align check` 或 `/doc-align sync`。
+
+## 用法
+
+- `/doc-align check` — 增量 drift 偵測（各文件自 `last_verified` 起算）
+- `/doc-align check --full` — 全量重驗
+- `/doc-align check --range origin/main...HEAD` — 指定範圍（PR 情境）
+- `/doc-align sync` — 套用文件更新並推進 manifest
+
+## 已知限制（Phase 1）
+
+- manifest 需手動建立（`init` 指令在 Phase 2）
+- schema-diff 只支援 SQL migrations（CREATE TABLE / ALTER ADD·DROP COLUMN / DROP TABLE），其他格式由 agent 語意分析 fallback
+- mermaid-check 是啟發式結構檢查，非完整語法驗證
+- 尚未支援 opencode（Phase 2）與 CI／PR 留言（Phase 3）
