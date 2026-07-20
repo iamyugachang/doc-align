@@ -44,12 +44,22 @@ function main(argv) {
   }
   if (!opts.doc || !opts.sql) throw new Error('usage: schema-diff.js --doc <db-schema.md> --sql <file-or-dir>');
 
-  const erBlocks = extractMermaidBlocks(readFileSync(opts.doc, 'utf8'))
-    .filter((b) => b.trim().startsWith('erDiagram'));
-  if (erBlocks.length !== 1) {
+  let docSchema;
+  try {
+    const erBlocks = extractMermaidBlocks(readFileSync(opts.doc, 'utf8'))
+      .filter((b) => b.trim().startsWith('erDiagram'));
+    if (erBlocks.length !== 1) {
+      process.stdout.write(JSON.stringify({
+        status: 'unsupported',
+        reason: `expected exactly one erDiagram in ${opts.doc}, found ${erBlocks.length}`,
+      }, null, 2) + '\n');
+      return;
+    }
+    docSchema = parseErDiagram(erBlocks[0]);
+  } catch (err) {
     process.stdout.write(JSON.stringify({
       status: 'unsupported',
-      reason: `expected exactly one erDiagram in ${opts.doc}, found ${erBlocks.length}`,
+      reason: `erDiagram parse error: ${err.message}`,
     }, null, 2) + '\n');
     return;
   }
@@ -64,7 +74,6 @@ function main(argv) {
     }
   }
 
-  const docSchema = parseErDiagram(erBlocks[0]);
   const { tables: dbTables, unsupported } = parseSqlDdl(readSql(opts.sql));
   const drifts = diffSchemas(docSchema.tables, dbTables);
   process.stdout.write(JSON.stringify({

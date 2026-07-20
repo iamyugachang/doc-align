@@ -49,6 +49,26 @@ test('CLI reports unsupported when doc has no erDiagram', () => {
   assert.equal(out.status, 'unsupported');
 });
 
+test('CLI reports unsupported (exit 0) when the erDiagram fails to parse, instead of crashing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'docalign-schema-'));
+  mkdirSync(join(dir, 'migrations'));
+  writeFileSync(join(dir, 'migrations/001.sql'), 'CREATE TABLE users (id INT);');
+  writeFileSync(join(dir, 'db-schema.md'), `# Schema
+
+\`\`\`mermaid
+erDiagram
+  USERS {
+    int id PK
+  }
+  this is not a valid erDiagram line
+\`\`\`
+`);
+  const out = JSON.parse(execFileSync('node',
+    [SCRIPT, '--doc', join(dir, 'db-schema.md'), '--sql', join(dir, 'migrations')], { encoding: 'utf8' }));
+  assert.equal(out.status, 'unsupported');
+  assert.match(out.reason, /erDiagram parse error/);
+});
+
 test('CLI reports unsupported (not full-drift) when --sql dir has zero .sql files', () => {
   const dir = mkdtempSync(join(tmpdir(), 'docalign-schema-'));
   mkdirSync(join(dir, 'migrations'));
