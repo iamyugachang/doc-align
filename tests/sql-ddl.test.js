@@ -109,3 +109,10 @@ test('commas inside a string literal do not split column definitions', () => {
   const { tables } = parseSqlDdl(`CREATE TABLE t (id INT, note TEXT DEFAULT 'a,b,c');`);
   assert.deepEqual(Object.keys(tables.t.columns).sort(), ['id', 'note']);
 });
+
+// --- hardening: CRLF line endings ---
+
+test('parseSqlDdl handles CRLF line endings', () => {
+  const { tables } = parseSqlDdl('CREATE TABLE users (\r\n  id INT,\r\n  email VARCHAR(255)\r\n);\r\n-- trailing comment\r\n');
+  assert.deepEqual(Object.keys(tables.users.columns).sort(), ['email', 'id']);
+});

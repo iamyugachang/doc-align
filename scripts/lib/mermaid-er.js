@@ -1,14 +1,16 @@
 // scripts/lib/mermaid-er.js
 export function extractMermaidBlocks(markdown) {
+  const normalized = markdown.replace(/\r\n/g, '\n');
   const blocks = [];
   const re = /```mermaid\n([\s\S]*?)```/g;
   let m;
-  while ((m = re.exec(markdown))) blocks.push(m[1]);
+  while ((m = re.exec(normalized))) blocks.push(m[1]);
   return blocks;
 }
 
 export function parseErDiagram(source) {
-  const lines = source.split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('%%'));
+  const normalized = source.replace(/\r\n/g, '\n');
+  const lines = normalized.split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('%%'));
   if (lines[0] !== 'erDiagram') throw new Error('not an erDiagram');
   const tables = {};
   const relations = [];
@@ -22,7 +24,7 @@ export function parseErDiagram(source) {
       current = null;
     } else if (current && (m = line.match(/^(\w+)\s+(\w+)(?:\s+(PK|FK|UK))?(?:\s+"[^"]*")?$/))) {
       tables[current].columns[m[2].toLowerCase()] = { type: m[1].toLowerCase(), key: m[3] ?? null };
-    } else if (!current && (m = line.match(/^(\w+)\s+\S+\s+(\w+)\s*:\s*\S+$/))) {
+    } else if (!current && (m = line.match(/^(\w+)\s+\S+\s+(\w+)\s*:\s*.+$/))) {
       relations.push({ from: m[1].toLowerCase(), to: m[2].toLowerCase() });
     } else {
       throw new Error(`unrecognized erDiagram line: ${line}`);

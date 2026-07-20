@@ -33,3 +33,27 @@ test('extractMermaidBlocks pulls fenced blocks out of markdown', () => {
   assert.equal(blocks.length, 1);
   assert.match(blocks[0], /^erDiagram/);
 });
+
+// --- hardening: relation labels ---
+
+test('relation lines with quoted, multi-word labels parse', () => {
+  const er = 'erDiagram\n  CUSTOMER {\n    int id PK\n  }\n  ORDER {\n    int id PK\n  }\n  CUSTOMER ||--o{ ORDER : "has many"\n';
+  const { relations } = parseErDiagram(er);
+  assert.deepEqual(relations, [{ from: 'customer', to: 'order' }]);
+});
+
+// --- hardening: CRLF line endings ---
+
+test('extractMermaidBlocks handles CRLF markdown', () => {
+  const md = ('# Schema\n\n```mermaid\n' + ER + '```\n\ntext\n').replace(/\n/g, '\r\n');
+  const blocks = extractMermaidBlocks(md);
+  assert.equal(blocks.length, 1);
+  assert.match(blocks[0], /^erDiagram/);
+});
+
+test('parseErDiagram handles CRLF source', () => {
+  const crlfEr = ER.replace(/\n/g, '\r\n');
+  const { tables, relations } = parseErDiagram(crlfEr);
+  assert.deepEqual(Object.keys(tables).sort(), ['orders', 'users']);
+  assert.deepEqual(relations, [{ from: 'users', to: 'orders' }]);
+});

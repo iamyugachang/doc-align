@@ -138,7 +138,7 @@ function splitStatements(sql) {
 export function parseSqlDdl(sql) {
   const tables = {};
   const unsupported = [];
-  const statements = splitStatements(sql);
+  const statements = splitStatements(sql.replace(/\r\n/g, '\n'));
   for (const stmt of statements) {
     let m;
     if ((m = stmt.match(new RegExp(`^create\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?${SCHEMA_PREFIX}"?(\\w+)"?\\s*\\(`, 'i')))) {

@@ -48,3 +48,22 @@ test('CLI reports unsupported when doc has no erDiagram', () => {
     [SCRIPT, '--doc', join(dir, 'db-schema.md'), '--sql', join(dir, 'schema.sql')], { encoding: 'utf8' }));
   assert.equal(out.status, 'unsupported');
 });
+
+test('CLI reports unsupported (not full-drift) when --sql dir has zero .sql files', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'docalign-schema-'));
+  mkdirSync(join(dir, 'migrations'));
+  writeFileSync(join(dir, 'migrations/README.txt'), 'no sql here');
+  writeFileSync(join(dir, 'db-schema.md'), `# Schema
+
+\`\`\`mermaid
+erDiagram
+  USERS {
+    int id PK
+  }
+\`\`\`
+`);
+  const out = JSON.parse(execFileSync('node',
+    [SCRIPT, '--doc', join(dir, 'db-schema.md'), '--sql', join(dir, 'migrations')], { encoding: 'utf8' }));
+  assert.equal(out.status, 'unsupported');
+  assert.match(out.reason, /no \.sql files found/);
+});

@@ -53,6 +53,17 @@ function main(argv) {
     }, null, 2) + '\n');
     return;
   }
+  if (statSync(opts.sql).isDirectory()) {
+    const sqlFiles = readdirSync(opts.sql).filter((f) => f.endsWith('.sql'));
+    if (sqlFiles.length === 0) {
+      process.stdout.write(JSON.stringify({
+        status: 'unsupported',
+        reason: `no .sql files found in ${opts.sql}`,
+      }, null, 2) + '\n');
+      return;
+    }
+  }
+
   const docSchema = parseErDiagram(erBlocks[0]);
   const { tables: dbTables, unsupported } = parseSqlDdl(readSql(opts.sql));
   const drifts = diffSchemas(docSchema.tables, dbTables);
