@@ -29,6 +29,27 @@ test('empty body is flagged', () => {
   assert.ok(checkBlock('flowchart TD\n').includes('empty diagram body'));
 });
 
+test('flowchart with quoted labels and a no-space arrow does not false-positive', () => {
+  const block = 'flowchart TD\n  A["API Gateway"]-->B["Auth Service"]\n';
+  assert.deepEqual(checkBlock(block), []);
+});
+
+test('an init directive before the diagram type keyword is skipped for type detection', () => {
+  const block = '%%{init: {"theme": "base"}}%%\nflowchart TD\n  A --> B\n';
+  assert.deepEqual(checkBlock(block), []);
+});
+
+test('an unterminated quote is confined to its own line', () => {
+  const block = 'flowchart TD\n  A[Cable 5" spec] --> B\n  C --> D\n';
+  const errors = checkBlock(block);
+  assert.ok(errors.includes('unterminated string'));
+  assert.ok(!errors.includes('unbalanced brackets'));
+});
+
+test('sequenceDiagram with a no-space arrow does not false-positive', () => {
+  assert.deepEqual(checkBlock('sequenceDiagram\n  BillingService-->>API: ok\n'), []);
+});
+
 test('CLI exits 1 when a file contains an invalid block', () => {
   const dir = mkdtempSync(join(tmpdir(), 'docalign-mmd-'));
   const good = join(dir, 'good.md');
