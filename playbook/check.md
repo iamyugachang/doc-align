@@ -21,15 +21,18 @@ Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `doc
    回報「無 drift，文件與程式碼對齊」並結束。
 4. **逐文件驗證**：對每份 status 為 `affected` 的文件，依 `type` 選擇方法。
    `unverified` 的文件視同全量：對整份文件做同樣驗證，並在報告註明原因
-   （缺少或失效的 last_verified）。
-   - **db-schema**：先執行
-     `node <SCRIPTS>/schema-diff.js --doc <文件路徑> --sql <migrations 路徑>`。
-     migrations 路徑從 manifest 的 watch patterns 推斷（如 `migrations/**` → `migrations/`）。
+   （缺少或失效的 last_verified）。若 repo 有程式碼索引工具（如 codegraph）優先用它
+   查 symbol 與呼叫路徑；否則搜尋原始碼。
+   - **db-schema**：`--sql` 路徑從 manifest 的 watch patterns 演算推導：取 pattern 中
+     第一個萬用字元（`*`／`?`）之前的目錄前綴（如 `migrations/**` → `migrations/`；
+     `db/migrations/*.sql` → `db/migrations/`）。watch 有多個 pattern 時依序嘗試，
+     用推導出的路徑執行
+     `node <SCRIPTS>/schema-diff.js --doc <文件路徑> --sql <推導出的路徑>`；
+     所有 pattern 都推導不出任何 `.sql` 檔時，比照下述 `unsupported` 流程處理。
      `status: unsupported` 或 `unsupportedStatements` 非空時，改以語意分析補驗：
      閱讀 ORM models 或 migration 原始碼，對照文件的 erDiagram 與欄位短註。
    - **class**：讀取文件中的 classDiagram，逐一確認圖中的類別、屬性、方法、關係
-     在程式碼中存在且正確。若 repo 有程式碼索引工具（如 codegraph）優先用它查
-     symbol；否則搜尋原始碼。改名、刪除、關係改變都是 drift。
+     在程式碼中存在且正確。改名、刪除、關係改變都是 drift。
    - **sequence**：讀取 sequence diagram，沿實際呼叫鏈逐步確認：每一步的呼叫者、
      被呼叫者、順序、條件分支是否仍成立。只驗證 matchedFiles 相關的流程段落即可，
      但發現上下游明顯不一致時應一併回報。
@@ -52,8 +55,10 @@ Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `doc
 1. **文件位置**：檔案路徑＋圖中的具體元素（哪條 sequence 步驟、哪個類別、哪個欄位）。
 2. **文件宣告**：文件目前怎麼說。
 3. **程式碼現狀**：實際行為，附 `檔案:行號` 引用。
-4. **兩種解讀**：(a) 文件過時 → 附具體的建議修改；(b) 程式碼行為可疑 → 說明為何
-   可能是 bug。兩者都要寫，由人裁決；無法判斷哪邊對時明說。
+4. **判斷**：(a) 文件過時 → 附具體的建議修改；(b) 程式碼行為可疑 → 說明為何
+   可能是 bug；(c) 無法驗證 → 當程式碼是 stub／尚未實作，或現有證據不足以支持
+   (a)(b) 任一方時，明確標記為無法驗證並說明原因，不得強行寫成有信心的 drift。
+   (a)(b) 都要寫，由人裁決；(c) 的項目在報告中與已確認的 drift 分開列出。
 
 報告末尾固定兩節：
 
