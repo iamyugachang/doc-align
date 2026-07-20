@@ -7,6 +7,10 @@
 `origin/main...HEAD`）；`--full`＝全量重驗。
 `<SCRIPTS>` 是 doc-align scripts 目錄的絕對路徑，由呼叫端（adapter）提供。
 
+Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `docs/` 的路徑
+（如 `flows/refund.md` 實際檔案是 `docs/flows/refund.md`）；所有檔案操作與 script
+呼叫都須組成 `docs/<path>` 這樣的完整路徑。
+
 ## 步驟
 
 1. **前置檢查**：確認 repo 根目錄存在 `docs/.docalign.yml`。不存在或下一步解析失敗時，
@@ -31,7 +35,12 @@
      但發現上下游明顯不一致時應一併回報。
    - **architecture / use-case**：只在 matchedFiles 含**結構性變動**
      （新增／刪除模組或目錄、進入點增減、外部依賴變更）時，判斷圖與短註是否仍正確；
-     純實作層變動直接標記為無影響。
+     純實作層變動直接標記為無影響。`--full` 模式或文件為 `unverified` 時，
+     changed-scope 不提供 matchedFiles，結構性變動門檻不適用，改為直接對照 repo
+     目前的整體結構驗證圖是否仍正確。
+   - **script 失敗的通用處理**：任何機械驗證 script 當機或以非零狀態退出（非上述已定義
+     的 `unsupported` 回報）時，視該文件為無法機械驗證，改用語意分析補驗，並在報告的
+     「涵蓋範圍」一節記錄此次 script 失敗。
 5. **短註驗證**：驗證圖的同時，檢查該文件短註裡的行為宣告
    （「當 X 條件成立時系統會 Y」）是否仍與程式碼一致。
 6. **產出報告**（格式見下）。報告本身輸出給使用者，不寫入檔案。
