@@ -31,6 +31,11 @@ test('loadManifest validates required keys', () => {
   assert.throws(() => loadManifest(bad), /missing path\/type/);
 });
 
+test('loadManifest rejects an unknown type', () => {
+  const bad = tmpManifest('docs:\n  - path: x.md\n    type: bogus\n');
+  assert.throws(() => loadManifest(bad), /unknown type 'bogus' for x\.md/);
+});
+
 test('CLI read prints JSON', () => {
   const p = tmpManifest(VALID);
   const out = JSON.parse(execFileSync('node', [SCRIPT, 'read', '--manifest', p], { encoding: 'utf8' }));

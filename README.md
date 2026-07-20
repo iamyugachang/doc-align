@@ -27,7 +27,20 @@
 
 ## 已知限制（Phase 1）
 
-- manifest 需手動建立（`init` 指令在 Phase 2）
+- manifest 需手動建立（`init` 指令在 Phase 2）。格式是嚴格子集（縮排固定、`path` 必須是每個 entry 的第一個 key）：
+
+      docs:
+        - path: flows/refund.md
+          type: sequence
+          watch:
+            - src/billing/**
+          last_verified: a1b2c3d
+        - path: db-schema.md
+          type: db-schema
+          watch:
+            - migrations/**
+
+  `type` 必須是 `architecture`、`use-case`、`sequence`、`class`、`db-schema` 之一；`watch` 與 `last_verified` 可省略（新文件尚未驗證過時）。
 - schema-diff 只支援 SQL migrations（CREATE TABLE / ALTER ADD·DROP COLUMN / DROP TABLE），其他格式由 agent 語意分析 fallback
 - mermaid-check 是啟發式結構檢查，非完整語法驗證
 - 尚未支援 opencode（Phase 2）與 CI／PR 留言（Phase 3）

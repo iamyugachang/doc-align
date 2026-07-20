@@ -1,5 +1,5 @@
 // scripts/schema-diff.js
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { extractMermaidBlocks, parseErDiagram } from './lib/mermaid-er.js';
@@ -36,10 +36,15 @@ function readSql(path) {
 
 function main(argv) {
   const opts = {};
+  function takeValue(a, i) {
+    const v = argv[i];
+    if (v === undefined || v.startsWith('--')) throw new Error(`${a} requires a value`);
+    return v;
+  }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--doc') opts.doc = argv[++i];
-    else if (a === '--sql') opts.sql = argv[++i];
+    if (a === '--doc') opts.doc = takeValue(a, ++i);
+    else if (a === '--sql') opts.sql = takeValue(a, ++i);
     else throw new Error(`unknown arg: ${a}`);
   }
   if (!opts.doc || !opts.sql) throw new Error('usage: schema-diff.js --doc <db-schema.md> --sql <file-or-dir>');
@@ -60,6 +65,13 @@ function main(argv) {
     process.stdout.write(JSON.stringify({
       status: 'unsupported',
       reason: `erDiagram parse error: ${err.message}`,
+    }, null, 2) + '\n');
+    return;
+  }
+  if (!existsSync(opts.sql)) {
+    process.stdout.write(JSON.stringify({
+      status: 'unsupported',
+      reason: `sql path not found: ${opts.sql}`,
     }, null, 2) + '\n');
     return;
   }

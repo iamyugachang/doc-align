@@ -3,11 +3,16 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse, serialize } from './lib/yaml-lite.js';
 
+const KNOWN_TYPES = new Set(['architecture', 'use-case', 'sequence', 'class', 'db-schema']);
+
 export function loadManifest(path) {
   const { docs } = parse(readFileSync(path, 'utf8'));
   for (const d of docs) {
     if (!d.path || !d.type) {
       throw new Error(`docalign manifest: entry missing path/type: ${JSON.stringify(d)}`);
+    }
+    if (!KNOWN_TYPES.has(d.type)) {
+      throw new Error(`docalign manifest: unknown type '${d.type}' for ${d.path}`);
     }
   }
   return { docs };

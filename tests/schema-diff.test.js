@@ -87,3 +87,32 @@ erDiagram
   assert.equal(out.status, 'unsupported');
   assert.match(out.reason, /no \.sql files found/);
 });
+
+// --- polish: arg guards and sql-path ENOENT handling ---
+
+test('CLI --doc without a value produces a clear arg error, not a stack trace', () => {
+  try {
+    execFileSync('node', [SCRIPT, '--doc'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    assert.fail('expected execFileSync to throw');
+  } catch (err) {
+    assert.match(err.stderr, /--doc requires a value/);
+  }
+});
+
+test('CLI reports unsupported (exit 0) when --sql path does not exist', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'docalign-schema-'));
+  writeFileSync(join(dir, 'db-schema.md'), `# Schema
+
+\`\`\`mermaid
+erDiagram
+  USERS {
+    int id PK
+  }
+\`\`\`
+`);
+  const missing = join(dir, 'nope');
+  const out = JSON.parse(execFileSync('node',
+    [SCRIPT, '--doc', join(dir, 'db-schema.md'), '--sql', missing], { encoding: 'utf8' }));
+  assert.equal(out.status, 'unsupported');
+  assert.match(out.reason, /sql path not found/);
+});
