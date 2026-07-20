@@ -11,3 +11,9 @@
 - `scripts/` — deterministic Node.js scripts（零依賴）
 - `adapters/claude-code/` — Claude Code skill 薄殼
 - `tests/` — 單元與整合測試（`npm test`）
+
+## 安裝（Claude Code）
+
+    ln -sfn "$(pwd)/adapters/claude-code" ~/.claude/skills/doc-align
+
+之後在任一 repo 內使用 `/doc-align check` 或 `/doc-align sync`。
