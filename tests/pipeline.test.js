@@ -72,12 +72,15 @@ test('pipeline: change code -> detect -> schema drift -> verify -> clean', () =>
   // 2. changed-scope 抓到兩份文件受影響
   const scope = node([S('changed-scope.js'), '--repo', dir], dir);
   assert.equal(scope.docs.find((d) => d.path === 'flows/refund.md').status, 'affected');
+  assert.deepEqual(scope.docs.find((d) => d.path === 'flows/refund.md').matchedFiles, ['src/billing/refund.py']);
   assert.equal(scope.docs.find((d) => d.path === 'db-schema.md').status, 'affected');
+  assert.deepEqual(scope.docs.find((d) => d.path === 'db-schema.md').matchedFiles, ['migrations/002.sql']);
 
   // 3. schema-diff 抓到欄位缺漏
   const sd = node([S('schema-diff.js'), '--doc', join(dir, 'docs/db-schema.md'), '--sql', join(dir, 'migrations')], dir);
   assert.equal(sd.status, 'drift');
   assert.deepEqual(sd.drifts, [{ kind: 'column_missing_in_doc', table: 'refunds', column: 'reason' }]);
+  assert.deepEqual(sd.unsupportedStatements, []);
 
   // 4. （模擬 sync 完成後）set-verified 推進，changed-scope 轉 clean
   const head = git(dir, 'rev-parse', 'HEAD');
