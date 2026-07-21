@@ -9,9 +9,14 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
 
 ## 步驟
 
-1. **盤點現況**：檢查 docs/ 與 docs/.docalign.yml 是否已存在。
+1. **盤點現況**：先確認目前目錄是 git repo 且至少有一個 commit（`git rev-parse HEAD`
+   成功）；否則停止並說明 doc-align 依賴 git 歷史，請先建立初始 commit。接著檢查
+   docs/ 與 docs/.docalign.yml 是否已存在。
    - manifest 已存在且可解析（`node <SCRIPTS>/manifest.js read` 成功）→ 停止並告知
      使用者應改用 check/sync；init 不覆蓋既有的有效狀態。
+   - `--repair` 模式且 manifest 存在但無法解析（`manifest.js read` 失敗且非檔案
+     不存在）→ 先把它改名為 `docs/.docalign.yml.bak` 再進行重建，並在最終報告
+     記錄備份位置。
    - `--repair` 模式 → 跳到步驟 7。
 2. **探索 repo**：理解實際行為——進入點、模組結構、資料流、外部依賴、DB schema
    來源（migrations／init SQL／ORM models）。若 repo 有程式碼索引工具可用則優先使
@@ -40,15 +45,21 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
 6. **驗證後寫入**：每份文件寫入前先在暫存位置通過
    `node <SCRIPTS>/mermaid-check.js <暫存檔>`；db-schema 文件另須
    `node <SCRIPTS>/schema-diff.js --doc <暫存檔> --sql <DDL 路徑>` 回報 `ok`
-   （`unsupported` 時修文件或在報告說明原因，不得默默留下 drift）。
+   （`unsupported` 時修文件或在報告說明原因，不得默默留下 drift；回報 `drift` 時
+   代表文件剛寫就錯——以程式碼為準修文件，重驗直到 `ok`）。
 7. **建立 manifest**：逐份文件執行
-   `node <SCRIPTS>/manifest.js add-doc --doc <path> --type <type> --watch <glob> [--watch ...] --commit <目前 HEAD>`
+   `node <SCRIPTS>/manifest.js add-doc --doc <path> --type <type> --watch <glob> [--watch ...]`
+   （不附 `--commit`：entries 一律先建立為未驗證狀態，是否標記已驗證留給步驟 8）。
    - watch 選擇該文件實際描述的程式碼範圍；db-schema 的 watch 必須把 DDL 目錄
      放在**第一個**（check 從第一個 pattern 推導 --sql 路徑）。
-   - `--repair` 模式：從既有文件內容推導 type 與 watch；重建後不直接標記已驗證
-     ——先執行步驟 8 的全量自檢，通過的文件才用 add-doc 附上 `--commit`。
+   - `--repair` 模式：從既有文件內容推導 type 與 watch。
 8. **自檢**：依 check playbook 以全量模式驗證每份剛完成的文件；發現自己寫錯的
-   立即修正並重驗。自檢不通過不得結束。
+   立即修正並重驗。全量自檢通過的文件逐一執行
+   `node <SCRIPTS>/manifest.js set-verified --doc <path> --commit <目前 HEAD>`
+   標記為已驗證。完整初始化模式下自檢不通過不得結束；`--repair` 模式不得重寫
+   文件內容，自檢不通過的文件維持不標 last_verified，在最終報告列為「待 sync
+   修正」，run 正常結束。
 9. **最終報告**：列出建立的檔案、各類型的採用／跳過決策與理由、驗證輸出摘要、
    既有敘述（README 等）與程式碼的不符清單、尚未被任何文件涵蓋的重要範圍。
+   `--repair` 模式省略「既有敘述與程式碼不符清單」一項（該模式不做探索）。
    init 不執行 git commit；是否提交由使用者決定。
