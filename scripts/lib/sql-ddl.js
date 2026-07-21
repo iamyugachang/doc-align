@@ -51,6 +51,16 @@ function extractTypeToken(rest) {
 
 const CONSTRAINT_HEADS = new Set(['primary', 'foreign', 'unique', 'constraint', 'check', 'key', 'index']);
 
+const IGNORABLE_STATEMENTS = [
+  /^insert\s+into\s/i,     // seed data
+  /^create\s+database\s/i, // database-level, not table-level
+  /^\\/,                   // psql meta-commands (\c, \connect, ...)
+];
+
+function isIgnorable(stmt) {
+  return IGNORABLE_STATEMENTS.some((re) => re.test(stmt));
+}
+
 // Schema-qualified name prefix (e.g. `shop.customers`), always discarded:
 // tables are keyed by their bare, lowercased name because Mermaid docs use
 // bare names. Two tables with the same name in different schemas are treated
@@ -129,6 +139,10 @@ function splitStatements(sql) {
       continue;
     }
     if (ch === ';') { statements.push(cur); cur = ''; i++; continue; }
+    // psql meta-commands (\c, \connect, ...) are newline-terminated, not
+    // semicolon-terminated — without this, a bare `\c foo` line with no
+    // trailing `;` would otherwise get glued onto the next real statement.
+    if (ch === '\n' && /^\s*\\/.test(cur)) { statements.push(cur); cur = ''; i++; continue; }
     cur += ch; i++;
   }
   if (cur.trim()) statements.push(cur);
@@ -165,6 +179,8 @@ export function parseSqlDdl(sql) {
       if (t) delete t.columns[m[2].toLowerCase()];
     } else if ((m = stmt.match(new RegExp(`^drop\\s+table\\s+(?:if\\s+exists\\s+)?${SCHEMA_PREFIX}"?(\\w+)"?`, 'i')))) {
       delete tables[m[1].toLowerCase()];
+    } else if (isIgnorable(stmt)) {
+      // seed-style statements can never cause schema drift — skip silently
     } else {
       unsupported.push(stmt.slice(0, 100));
     }

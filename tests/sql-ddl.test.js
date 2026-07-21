@@ -116,3 +116,19 @@ test('parseSqlDdl handles CRLF line endings', () => {
   const { tables } = parseSqlDdl('CREATE TABLE users (\r\n  id INT,\r\n  email VARCHAR(255)\r\n);\r\n-- trailing comment\r\n');
   assert.deepEqual(Object.keys(tables.users.columns).sort(), ['email', 'id']);
 });
+
+test('seed-style statements are ignored, not reported unsupported', () => {
+  const { tables, unsupported } = parseSqlDdl(`
+    CREATE DATABASE shop;
+    \\c shop
+    CREATE TABLE users (id INT);
+    INSERT INTO users (id) VALUES (1), (2);
+  `);
+  assert.deepEqual(Object.keys(tables), ['users']);
+  assert.deepEqual(unsupported, []);
+});
+
+test('genuinely unsupported statements are still reported', () => {
+  const { unsupported } = parseSqlDdl('CREATE INDEX idx ON users (email);');
+  assert.equal(unsupported.length, 1);
+});
