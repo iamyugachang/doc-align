@@ -1,6 +1,7 @@
 // scripts/manifest.js
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
 import { parse, serialize } from './lib/yaml-lite.js';
 
 export const KNOWN_TYPES = ['architecture', 'use-case', 'sequence', 'class', 'db-schema'];
@@ -19,6 +20,7 @@ export function loadManifest(path) {
 }
 
 export function saveManifest(path, manifest) {
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, serialize(manifest));
 }
 
@@ -60,10 +62,12 @@ function main(argv) {
   }
   if (cmd === 'add-doc') {
     if (!opts.doc) throw new Error('add-doc requires --doc');
+    if (!opts.type) throw new Error('add-doc requires --type');
     if (!KNOWN_TYPES.includes(opts.type)) {
       throw new Error(`add-doc: unknown type '${opts.type}' (expected one of ${KNOWN_TYPES.join(', ')})`);
     }
     if (!opts.watch.length) throw new Error('add-doc requires at least one --watch');
+    if (opts.commit === '') throw new Error('--commit requires a non-empty value');
     let manifest;
     try {
       manifest = loadManifest(opts.manifest);

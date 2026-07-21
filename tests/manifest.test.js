@@ -1,7 +1,7 @@
 // tests/manifest.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -88,4 +88,27 @@ test('add-doc rejects duplicate path and unknown type', () => {
     '--doc', 'flows/refund.md', '--type', 'sequence', '--watch', 'x/**'], { stdio: 'pipe' }));
   assert.throws(() => execFileSync('node', [SCRIPT, 'add-doc', '--manifest', p,
     '--doc', 'new.md', '--type', 'bogus', '--watch', 'x/**'], { stdio: 'pipe' }));
+});
+
+test('add-doc bootstraps a missing docs/ directory using the default manifest path', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'docalign-'));
+  assert.ok(!existsSync(join(cwd, 'docs')));
+  execFileSync('node', [SCRIPT, 'add-doc', '--doc', 'architecture.md',
+    '--type', 'architecture', '--watch', 'src/**'], { cwd });
+  const { docs } = loadManifest(join(cwd, 'docs', '.docalign.yml'));
+  assert.equal(docs[0].path, 'architecture.md');
+});
+
+test('add-doc rejects an empty --commit value', () => {
+  const p = tmpManifest(VALID);
+  assert.throws(() => execFileSync('node', [SCRIPT, 'add-doc', '--manifest', p,
+    '--doc', 'new.md', '--type', 'architecture', '--watch', 'x/**', '--commit', ''], { stdio: 'pipe' }),
+    /--commit requires a non-empty value/);
+});
+
+test('add-doc rejects a missing --type with a distinct message', () => {
+  const p = tmpManifest(VALID);
+  assert.throws(() => execFileSync('node', [SCRIPT, 'add-doc', '--manifest', p,
+    '--doc', 'new.md', '--watch', 'x/**'], { stdio: 'pipe' }),
+    /add-doc requires --type/);
 });
