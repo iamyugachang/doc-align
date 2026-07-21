@@ -24,10 +24,19 @@
 - `/doc-align check --full` — 全量重驗
 - `/doc-align check --range origin/main...HEAD` — 指定範圍（PR 情境）
 - `/doc-align sync` — 套用文件更新並推進 manifest
+- `/doc-align init` — 從零 bootstrap 文件集與 manifest
+- `/doc-align init --repair` — manifest 損壞時重建
+
+## 安裝原理
+
+symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
+`adapters/claude-code/`，SKILL.md 執行時用 `realpath` 穿透 symlink 找回 repo 根，
+再以絕對路徑取用 `playbook/` 與 `scripts/`。因此 **clone 下來的整個 repo 就是安裝
+本體**，`git pull` 即完成更新。換機器＝`git clone` + `ln -sfn`，無需複製 scripts。
 
 ## 已知限制（Phase 1）
 
-- manifest 需手動建立（`init` 指令在 Phase 2）。格式是嚴格子集（縮排固定、`path` 必須是每個 entry 的第一個 key）：
+- manifest 格式（工具維護，一般不需手動編輯）。格式是嚴格子集（縮排固定、`path` 必須是每個 entry 的第一個 key）：
 
       docs:
         - path: flows/refund.md

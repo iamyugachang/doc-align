@@ -14,7 +14,8 @@ Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `doc
 ## 步驟
 
 1. **前置檢查**：確認 repo 根目錄存在 `docs/.docalign.yml`。不存在或下一步解析失敗時，
-   停止並告知使用者需先建立 manifest（`doc-align init`，Phase 2 提供），不要憑空產生報告。
+   停止並告知使用者需先建立 manifest（執行 `doc-align init`；manifest 損壞而文件存在時用
+   `doc-align init --repair`），不要憑空產生報告。
 2. **取得受影響範圍**：執行
    `node <SCRIPTS>/changed-scope.js [--range <range>] [--full]`，讀取 JSON 輸出。
 3. **早退**：若所有 docs 的 status 皆為 `clean` 且 `unmatchedFiles` 為空，
