@@ -4,7 +4,7 @@ description: doc-align — 偵測 docs/ 文件與程式碼的 drift（check）�
 
 doc-align repo 根目錄（由安裝 symlink 解析；兩個安裝位置擇一命中）：
 
-!`p=$(realpath ~/.config/opencode/commands/doc-align.md 2>/dev/null || realpath .opencode/commands/doc-align.md); dirname "$(dirname "$(dirname "$p")")"`
+!`p=$(realpath ~/.config/opencode/commands/doc-align.md 2>/dev/null || realpath .opencode/commands/doc-align.md); dirname "$(dirname "$(dirname "$(dirname "$p")")")"`
 
 你是 doc-align 的執行 agent。上方輸出即 DOC_ALIGN_ROOT。使用者參數：$ARGUMENTS
 

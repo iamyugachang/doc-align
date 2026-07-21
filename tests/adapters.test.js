@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, symlinkSync, realpathSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
@@ -21,10 +24,28 @@ test('both adapters exist and reference every playbook subcommand', () => {
 });
 
 test('opencode command has description frontmatter and resolves repo root', () => {
-  const md = readFileSync(ROOT + 'adapters/opencode/commands/doc-align.md', 'utf8');
+  const relPath = 'adapters/opencode/commands/doc-align.md';
+  const md = readFileSync(ROOT + relPath, 'utf8');
   assert.match(frontmatter(md), /^description:\s+\S/m);
   assert.ok(md.includes('$ARGUMENTS'), 'passes user arguments');
-  assert.ok(md.includes('realpath'), 'resolves symlink to repo root');
+
+  const shellMatch = md.match(/^!`(.*)`$/m);
+  assert.ok(shellMatch, 'has a shell-injection line');
+  const snippet = shellMatch[1];
+
+  // Simulate a global install: ~/.config/opencode/commands/doc-align.md is a
+  // symlink to the real command file, exactly like the README's install step.
+  const fakeHome = mkdtempSync(join(tmpdir(), 'docalign-opencode-'));
+  mkdirSync(join(fakeHome, '.config', 'opencode', 'commands'), { recursive: true });
+  const realFile = realpathSync(ROOT + relPath);
+  symlinkSync(realFile, join(fakeHome, '.config', 'opencode', 'commands', 'doc-align.md'));
+
+  const stdout = execFileSync('bash', ['-c', snippet], {
+    env: { ...process.env, HOME: fakeHome },
+    encoding: 'utf8',
+  });
+  const expectedRoot = realpathSync(ROOT.replace(/\/$/, ''));
+  assert.equal(stdout.trim(), expectedRoot, 'resolves the actual repo root, not a parent/child of it');
 });
 
 test('adapters contain no agent-specific tool names', () => {
