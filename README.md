@@ -18,6 +18,14 @@
 
 之後在任一 repo 內使用 `/doc-align check` 或 `/doc-align sync`。
 
+## 安裝（opencode）
+
+    mkdir -p ~/.config/opencode/commands
+    ln -sfn "$(pwd)/adapters/opencode/commands/doc-align.md" ~/.config/opencode/commands/doc-align.md
+
+之後在 opencode 內使用 `/doc-align check|sync|init`。
+（尚未在真機驗證——安裝後請先跑一次 `/doc-align check` 確認 repo 根解析正確。）
+
 ## 用法
 
 - `/doc-align check` — 增量 drift 偵測（各文件自 `last_verified` 起算）
