@@ -132,3 +132,13 @@ test('genuinely unsupported statements are still reported', () => {
   const { unsupported } = parseSqlDdl('CREATE INDEX idx ON users (email);');
   assert.equal(unsupported.length, 1);
 });
+
+test('a MySQL-style backslash-escaped quote inside a string does not swallow the next statement', () => {
+  const { tables } = parseSqlDdl("CREATE TABLE a (note VARCHAR(50) DEFAULT 'it\\'s');\nCREATE TABLE b (id INT);");
+  assert.deepEqual(Object.keys(tables).sort(), ['a', 'b']);
+});
+
+test('Postgres doubled-quote escaping still works alongside backslash-escape handling', () => {
+  const { tables } = parseSqlDdl(`CREATE TABLE t (id INT, note TEXT DEFAULT 'a''b');`);
+  assert.deepEqual(Object.keys(tables.t.columns).sort(), ['id', 'note']);
+});

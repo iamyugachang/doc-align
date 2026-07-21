@@ -123,6 +123,10 @@ function splitStatements(sql) {
   while (i < n) {
     const ch = sql[i];
     if (inString) {
+      // MySQL-style backslash escaping (e.g. 'it\'s tricky'): the escaped
+      // character is consumed as literal data without toggling inString, so
+      // an escaped quote doesn't prematurely end the string.
+      if (ch === '\\') { cur += ch; i++; if (i < n) { cur += sql[i]; i++; } continue; }
       if (ch === "'" && sql[i + 1] === "'") { cur += "''"; i += 2; continue; }
       if (ch === "'") { inString = false; cur += ch; i++; continue; }
       cur += ch; i++; continue;
