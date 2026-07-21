@@ -85,7 +85,7 @@ function main(argv) {
     process.stdout.write(JSON.stringify({ ok: true, doc }, null, 2) + '\n');
     return;
   }
-  throw new Error('usage: manifest.js read|set-verified|set-watch|add-doc [--manifest p] [--doc p] [--commit sha] [--watch glob]...');
+  throw new Error('usage: manifest.js read|set-verified|set-watch|add-doc [--manifest p] [--doc p] [--type t] [--commit sha] [--watch glob]...');
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) main(process.argv.slice(2));

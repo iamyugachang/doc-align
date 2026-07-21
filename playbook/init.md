@@ -14,9 +14,14 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
    docs/ 與 docs/.docalign.yml 是否已存在。
    - manifest 已存在且可解析（`node <SCRIPTS>/manifest.js read` 成功）→ 停止並告知
      使用者應改用 check/sync；init 不覆蓋既有的有效狀態。
+   - 非 `--repair` 模式下，manifest 存在但無法解析（`manifest.js read` 失敗且非
+     檔案不存在）→ 停止並建議使用者改用 `doc-align init --repair`；不得逕行探索
+     與寫文件。
    - `--repair` 模式且 manifest 存在但無法解析（`manifest.js read` 失敗且非檔案
      不存在）→ 先把它改名為 `docs/.docalign.yml.bak` 再進行重建，並在最終報告
      記錄備份位置。
+   - `--repair` 模式下，若 docs/ 不存在或沒有任何文件 → `--repair` 無可重建，停止
+     並說明應執行完整 init（不帶 `--repair`）。
    - `--repair` 模式 → 跳到步驟 7。
 2. **探索 repo**：理解實際行為——進入點、模組結構、資料流、外部依賴、DB schema
    來源（migrations／init SQL／ORM models）。若 repo 有程式碼索引工具可用則優先使

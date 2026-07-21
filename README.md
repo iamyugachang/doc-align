@@ -10,13 +10,14 @@
 - `playbook/` — 核心流程指令（agent 無關的 markdown）
 - `scripts/` — deterministic Node.js scripts（零依賴）
 - `adapters/claude-code/` — Claude Code skill 薄殼
+- `adapters/opencode/` — opencode command 薄殼
 - `tests/` — 單元與整合測試（`npm test`）
 
 ## 安裝（Claude Code）
 
     ln -sfn "$(pwd)/adapters/claude-code" ~/.claude/skills/doc-align
 
-之後在任一 repo 內使用 `/doc-align check` 或 `/doc-align sync`。
+之後在任一 repo 內使用 `/doc-align check|sync|init`。
 
 ## 安裝（opencode）
 
@@ -42,7 +43,7 @@ symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
 再以絕對路徑取用 `playbook/` 與 `scripts/`。因此 **clone 下來的整個 repo 就是安裝
 本體**，`git pull` 即完成更新。換機器＝`git clone` + `ln -sfn`，無需複製 scripts。
 
-## 已知限制（Phase 1）
+## 已知限制
 
 - manifest 格式（工具維護，一般不需手動編輯）。格式是嚴格子集（縮排固定、`path` 必須是每個 entry 的第一個 key）：
 
@@ -60,4 +61,4 @@ symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
   `type` 必須是 `architecture`、`use-case`、`sequence`、`class`、`db-schema` 之一；`watch` 與 `last_verified` 可省略（新文件尚未驗證過時）。
 - schema-diff 只支援 SQL migrations（CREATE TABLE / ALTER ADD·DROP COLUMN / DROP TABLE），其他格式由 agent 語意分析 fallback
 - mermaid-check 是啟發式結構檢查，非完整語法驗證
-- 尚未支援 opencode（Phase 2）與 CI／PR 留言（Phase 3）
+- 尚未支援 CI／PR 留言（Phase 3）
