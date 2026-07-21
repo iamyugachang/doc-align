@@ -19,4 +19,4 @@
 
 ## check playbook 既知的開放問題（E2E 回報，未阻塞）
 
-- sequence／architecture 驗證方法完全開放（「沿呼叫鏈確認」），可重現性依賴執行 agent 的判斷；Phase 2 可評估是否給出更結構化的步驟。
+- sequence／architecture 驗證方法完全開放（「沿呼叫鏈確認」），可重現性依賴執行 agent 的判斷；是否給出更結構化的步驟——遞延：Phase 3 討論。

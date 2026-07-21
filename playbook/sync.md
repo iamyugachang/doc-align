@@ -25,7 +25,8 @@ Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `doc
    再連同異動一次以完整的目標清單傳入：
    `node <SCRIPTS>/manifest.js set-watch --doc <path> --watch <glob> [--watch <glob>...]`
 5. **推進 last_verified**：對每份「確認與程式碼對齊」的文件
-   （本次更新過的，以及 check 判定 clean 的）：
+   （本次更新過的、check 判定 clean 的，以及 check 中以 unverified 狀態完成全量
+   驗證且確認對齊的文件）：
    `node <SCRIPTS>/manifest.js set-verified --doc <path> --commit <目前的 HEAD commit>`
    仍有未裁決 drift 的文件**不得**推進。
 6. **總結**：列出更新了哪些文件、哪些 drift 被標記為程式碼問題（附程式碼位置，
