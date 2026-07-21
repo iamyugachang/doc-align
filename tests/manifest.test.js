@@ -62,3 +62,30 @@ test('CLI set-watch rejects a trailing --watch with no value, leaving the file u
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
   assert.equal(readFileSync(p, 'utf8'), before);
 });
+
+test('add-doc creates the manifest file when missing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'docalign-'));
+  const p = join(dir, '.docalign.yml');
+  execFileSync('node', [SCRIPT, 'add-doc', '--manifest', p, '--doc', 'architecture.md',
+    '--type', 'architecture', '--watch', 'src/**', '--commit', 'abc1234']);
+  const { docs } = loadManifest(p);
+  assert.deepEqual(docs, [{ path: 'architecture.md', type: 'architecture', watch: ['src/**'], last_verified: 'abc1234' }]);
+});
+
+test('add-doc appends to an existing manifest and preserves entries', () => {
+  const p = tmpManifest(VALID);
+  execFileSync('node', [SCRIPT, 'add-doc', '--manifest', p, '--doc', 'db-schema.md',
+    '--type', 'db-schema', '--watch', 'migrations/**']);
+  const { docs } = loadManifest(p);
+  assert.equal(docs.length, 2);
+  assert.equal(docs[0].path, 'flows/refund.md');
+  assert.equal(docs[1].last_verified, undefined);
+});
+
+test('add-doc rejects duplicate path and unknown type', () => {
+  const p = tmpManifest(VALID);
+  assert.throws(() => execFileSync('node', [SCRIPT, 'add-doc', '--manifest', p,
+    '--doc', 'flows/refund.md', '--type', 'sequence', '--watch', 'x/**'], { stdio: 'pipe' }));
+  assert.throws(() => execFileSync('node', [SCRIPT, 'add-doc', '--manifest', p,
+    '--doc', 'new.md', '--type', 'bogus', '--watch', 'x/**'], { stdio: 'pipe' }));
+});
