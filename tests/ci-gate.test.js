@@ -91,3 +91,41 @@ test('missing --base is a loud error', () => {
   const dir = makePr();
   assert.throws(() => execFileSync('node', [SCRIPT, '--repo', dir], { stdio: 'pipe' }));
 });
+
+test('docs-only PR (hand-edited tracked diagram) → skip=true but changedDocs lists it for zero-cost lint', () => {
+  const dir = makePr();
+  mkdirSync(join(dir, 'docs/flows'), { recursive: true });
+  writeFileSync(join(dir, 'docs/flows/refund.md'), '# refund\n');
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-m', 'hand-edit diagram');
+  const out = run(dir);
+  assert.equal(out.skip, true);
+  assert.deepEqual(out.changedDocs, ['docs/flows/refund.md']);
+});
+
+test('manifest-only change → changedDocs excludes the manifest itself', () => {
+  const dir = makePr();
+  writeFileSync(join(dir, 'docs/.docalign.yml'), `docs:
+  - path: flows/refund.md
+    type: sequence
+    watch:
+      - src/billing/**
+`);
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-m', 'manifest tweak');
+  const out = run(dir);
+  assert.deepEqual(out.changedDocs, []);
+});
+
+test('GITHUB_OUTPUT contains changed_docs line', () => {
+  const dir = makePr();
+  mkdirSync(join(dir, 'docs/flows'), { recursive: true });
+  writeFileSync(join(dir, 'docs/flows/refund.md'), '# refund\n');
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-m', 'hand-edit diagram');
+  const ghOut = join(mkdtempSync(join(tmpdir(), 'gho-')), 'out');
+  writeFileSync(ghOut, '');
+  run(dir, { GITHUB_OUTPUT: ghOut });
+  const content = readFileSync(ghOut, 'utf8');
+  assert.match(content, /^changed_docs=docs\/flows\/refund\.md$/m);
+});
