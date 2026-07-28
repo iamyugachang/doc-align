@@ -43,6 +43,21 @@ symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
 再以絕對路徑取用 `playbook/` 與 `scripts/`。因此 **clone 下來的整個 repo 就是安裝
 本體**，`git pull` 即完成更新。換機器＝`git clone` + `ln -sfn`，無需複製 scripts。
 
+## CI（GitHub Action，PR 留言）
+
+把 `ci/doc-align-claude.yml`（或 opencode 版）複製到目標 repo 的
+`.github/workflows/doc-align.yml`，並設定：
+
+1. Secret `ANTHROPIC_API_KEY`（LLM 步驟用）。
+2. doc-align repo 若為 private：Secret `DOC_ALIGN_TOKEN`（read 權限 PAT），
+   並依範本內註解調整 clone URL。
+
+行為：PR 未觸及任何 watch 範圍時零成本跳過；有觸及時執行 check 並以單一留言
+（upsert）回報 drift；**永不 fail job**——drift 是資訊，不是門檻。
+變動到 docs/ 內文件的 PR 一律先跑零成本的 Mermaid 語法檢查，語法錯誤會 fail
+job（這是 lint，不是 drift 報告）。
+尚未在真實 PR 上 live 驗證；首次啟用請開一個測試 PR 確認留言流程。
+
 ## 已知限制
 
 - manifest 格式（工具維護，一般不需手動編輯）。格式是嚴格子集（縮排固定、`path` 必須是每個 entry 的第一個 key）：

@@ -20,3 +20,5 @@
 ## check playbook 既知的開放問題（E2E 回報，未阻塞）
 
 - sequence／architecture 驗證方法完全開放（「沿呼叫鏈確認」），可重現性依賴執行 agent 的判斷；是否給出更結構化的步驟——遞延：Phase 3 討論。
+
+決議（Phase 3）：維持 LLM 判斷，不引入結構化步驟——兩輪 live E2E 未出現可重現性問題，過早結構化違反 YAGNI；若日後出現誤判案例再重啟。
