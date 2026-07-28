@@ -53,7 +53,7 @@ jobs:
         run: |
           MARKER="<!-- doc-align-report -->"
           { echo "$MARKER"; echo; cat "$RUNNER_TEMP/report.md"; } > "$RUNNER_TEMP/comment.md"
-          CID=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+          CID=$(gh api --paginate "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
             --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -1)
           if [ -n "$CID" ]; then
             gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$CID" -F body=@"$RUNNER_TEMP/comment.md"

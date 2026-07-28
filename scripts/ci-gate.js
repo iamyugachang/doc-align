@@ -7,7 +7,9 @@ import { loadManifest } from './manifest.js';
 import { changedScope } from './changed-scope.js';
 
 function gitDiffFiles(range, cwd) {
-  const out = execFileSync('git', ['diff', '--name-only', range], { cwd, encoding: 'utf8' });
+  // --diff-filter=d excludes deleted files: a doc removed by this PR has no
+  // content left to lint, and mermaid-check.js would crash trying to read it.
+  const out = execFileSync('git', ['diff', '--name-only', '--diff-filter=d', range], { cwd, encoding: 'utf8' });
   return out.split('\n').filter(Boolean);
 }
 

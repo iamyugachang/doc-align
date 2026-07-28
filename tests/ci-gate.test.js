@@ -117,6 +117,23 @@ test('manifest-only change → changedDocs excludes the manifest itself', () => 
   assert.deepEqual(out.changedDocs, []);
 });
 
+test('deleted doc → changedDocs excludes it (mermaid lint would crash on a gone file), changed_docs output empty', () => {
+  const dir = makePr();
+  mkdirSync(join(dir, 'docs/flows'), { recursive: true });
+  writeFileSync(join(dir, 'docs/flows/refund.md'), '# refund\n');
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-m', 'add doc');
+  git(dir, 'branch', '-f', 'main', 'HEAD'); // doc exists on main before this PR
+  git(dir, 'rm', 'docs/flows/refund.md');
+  git(dir, 'commit', '-m', 'delete doc');
+  const ghOut = join(mkdtempSync(join(tmpdir(), 'gho-')), 'out');
+  writeFileSync(ghOut, '');
+  const out = run(dir, { GITHUB_OUTPUT: ghOut });
+  assert.deepEqual(out.changedDocs, []);
+  const content = readFileSync(ghOut, 'utf8');
+  assert.match(content, /^changed_docs=$/m);
+});
+
 test('GITHUB_OUTPUT contains changed_docs line', () => {
   const dir = makePr();
   mkdirSync(join(dir, 'docs/flows'), { recursive: true });

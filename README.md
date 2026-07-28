@@ -45,6 +45,8 @@ symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
 
 ## CI（GitHub Action，PR 留言）
 
+目標 repo 必須已完成 doc-align init（存在 docs/.docalign.yml），否則閘門會在每個 PR 上報錯。
+
 把 `ci/doc-align-claude.yml`（或 opencode 版）複製到目標 repo 的
 `.github/workflows/doc-align.yml`，並設定：
 
