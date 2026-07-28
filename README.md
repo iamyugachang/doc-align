@@ -76,4 +76,3 @@ job（這是 lint，不是 drift 報告）。
   `type` 必須是 `architecture`、`use-case`、`sequence`、`class`、`db-schema` 之一；`watch` 與 `last_verified` 可省略（新文件尚未驗證過時）。
 - schema-diff 只支援 SQL migrations（CREATE TABLE / ALTER ADD·DROP COLUMN / DROP TABLE），其他格式由 agent 語意分析 fallback
 - mermaid-check 是啟發式結構檢查，非完整語法驗證
-- 尚未支援 CI／PR 留言（Phase 3）

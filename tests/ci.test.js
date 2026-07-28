@@ -40,9 +40,36 @@ test('mermaid lint on changed docs runs between the gate and the LLM step, gated
     const y = readFileSync(ROOT + f, 'utf8');
     assert.match(y, /mermaid-check\.js/, `${f}: mermaid lint step present`);
     assert.match(y, /steps\.gate\.outputs\.changed_docs != ''/, `${f}: mermaid lint gated on changed_docs`);
-    const gateIdx = y.indexOf('ci-gate.js');
-    const mermaidIdx = y.indexOf('mermaid-check.js');
-    const llmIdx = f.includes('claude') ? y.indexOf('claude -p') : y.indexOf('opencode run');
+    const gateIdx = y.indexOf('name: Cheap gate');
+    const mermaidIdx = y.indexOf('name: Mermaid lint');
+    const llmIdx = y.indexOf('name: Drift check');
     assert.ok(gateIdx < mermaidIdx && mermaidIdx < llmIdx, `${f}: mermaid lint sits between gate and LLM`);
+  }
+});
+
+test('untrusted step-output/context expressions are spliced via env:, never directly into a run: line', () => {
+  // Regression lock: ${{ }} expressions derived from untrusted PR input (gate
+  // outputs, github.base_ref) must never be interpolated straight into a
+  // run: shell command — that's a script-injection vector. They may only
+  // appear as env: assignments (KEY: ${{ ... }}), which the shell then reads
+  // as an inert environment variable.
+  const untrustedExprs = [
+    '${{ steps.gate.outputs.changed_docs }}',
+    '${{ steps.gate.outputs.range }}',
+    '${{ github.base_ref }}',
+  ];
+  for (const f of FILES) {
+    const y = readFileSync(ROOT + f, 'utf8');
+    for (const line of y.split('\n')) {
+      for (const expr of untrustedExprs) {
+        if (line.includes(expr)) {
+          assert.match(
+            line,
+            /^\s*[A-Za-z_][A-Za-z0-9_]*:\s*\$\{\{/,
+            `${f}: "${expr}" must only appear as an env: assignment, not spliced into run: — got line: ${line}`,
+          );
+        }
+      }
+    }
   }
 });
