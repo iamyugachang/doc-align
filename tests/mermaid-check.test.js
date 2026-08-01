@@ -50,6 +50,21 @@ test('sequenceDiagram with a no-space arrow does not false-positive', () => {
   assert.deepEqual(checkBlock('sequenceDiagram\n  BillingService-->>API: ok\n'), []);
 });
 
+test('ASCII parens directly adjacent to CJK text are flagged', () => {
+  const block = 'flowchart TD\n  A[dbt run(執行全部模型)] --> B\n';
+  assert.ok(checkBlock(block).includes('mixed-width parens near CJK text (use （） )'));
+});
+
+test('full-width parens beside CJK text do not false-positive', () => {
+  const block = 'flowchart TD\n  A[dbt run（執行全部模型）] --> B\n';
+  assert.deepEqual(checkBlock(block), []);
+});
+
+test('pure-English ASCII parens do not false-positive', () => {
+  const block = 'flowchart TD\n  A[run(all)] --> B\n';
+  assert.deepEqual(checkBlock(block), []);
+});
+
 test('CLI exits 1 when a file contains an invalid block', () => {
   const dir = mkdtempSync(join(tmpdir(), 'docalign-mmd-'));
   const good = join(dir, 'good.md');

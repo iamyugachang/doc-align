@@ -38,9 +38,15 @@ export function checkBlock(source) {
   //     inside free-text labels/descriptions, not just structural syntax —
   //     this can flag sloppy prose as "unbalanced brackets", but that's
   //     accepted as a useful typo-catcher.
+  //
+  // Separately, after the quote-stripping step, each line is also checked
+  // for CJK text directly adjacent to an ASCII `(`/`)` — Mermaid labels
+  // mixing full-width CJK with half-width parens render with awkward
+  // spacing, so this is flagged as a style issue (use full-width （） instead).
   const closers = { '(': ')', '[': ']', '{': '}' };
   const stack = [];
   let balanced = true;
+  const CJK_ASCII_PAREN_RE = /[一-鿿぀-ヿ][()]|[()][一-鿿぀-ヿ]/;
 
   for (const line of lines) {
     if (line.trim().startsWith('%%')) continue;
@@ -49,6 +55,11 @@ export function checkBlock(source) {
     if (quoteCount % 2 !== 0) errors.push('unterminated string');
 
     const dequoted = line.replace(/"[^"]*"/g, '');
+
+    if (CJK_ASCII_PAREN_RE.test(dequoted)) {
+      errors.push('mixed-width parens near CJK text (use （） )');
+    }
+
     const strippedLine = dequoted.replace(/\S*--\S*/g, '');
 
     for (const ch of strippedLine) {

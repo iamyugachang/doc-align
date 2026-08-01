@@ -82,6 +82,15 @@ test('add-doc appends to an existing manifest and preserves entries', () => {
   assert.equal(docs[1].last_verified, undefined);
 });
 
+test('add-doc accepts --type overview', () => {
+  const p = tmpManifest(VALID);
+  execFileSync('node', [SCRIPT, 'add-doc', '--manifest', p, '--doc', 'overview.md',
+    '--type', 'overview', '--watch', 'src/**']);
+  const { docs } = loadManifest(p);
+  assert.equal(docs[1].path, 'overview.md');
+  assert.equal(docs[1].type, 'overview');
+});
+
 test('add-doc rejects duplicate path and unknown type', () => {
   const p = tmpManifest(VALID);
   assert.throws(() => execFileSync('node', [SCRIPT, 'add-doc', '--manifest', p,

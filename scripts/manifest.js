@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { parse, serialize } from './lib/yaml-lite.js';
 
-export const KNOWN_TYPES = ['architecture', 'use-case', 'sequence', 'class', 'db-schema'];
+export const KNOWN_TYPES = ['architecture', 'use-case', 'sequence', 'class', 'db-schema', 'overview'];
 
 export function loadManifest(path) {
   const { docs } = parse(readFileSync(path, 'utf8'));
