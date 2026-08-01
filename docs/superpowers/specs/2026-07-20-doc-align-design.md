@@ -41,10 +41,23 @@ doc-align 是一個文件對齊工具，解決兩件事：
 | `flows/<use-case>.md` | 各 use case 的 sequence diagram | 沿實際 call path 逐步驗證 |
 | `class-diagram.md` | 核心 domain 類別圖（不含瑣碎 utility） | Symbol 存在性與關係比對 |
 | `db-schema.md` | Schema 快照 + 欄位用途註記（有 DB 才生成） | 對 migrations／ORM models 機械 diff |
+| `overview.md` | 系統目的、domain 詞彙表、文件導讀順序 | LLM 語意判斷，僅結構性變動時觸發 |
 
 設計原則：**文件類型本身決定驗證方法**。圖表是結構化宣告（類別、呼叫步驟、欄位都是具體 symbol），比自然語言敘事更可機械驗證。
 
-短註的寫作指引：傾向寫「可被程式碼驗證的具體行為句」（當 X 條件成立時系統會 Y），避免空泛描述，讓 LLM 驗證時有明確著力點。
+### 文件結構（結構化敘事）
+
+每份文件依類型包含以下段落：
+
+- **目的與情境**：為什麼存在、誰觸發、產出給誰；敘事段落。
+- **圖**（Mermaid）。
+- **行為規則**：編號的可驗證商業規則句（當 X 條件成立時系統會 Y），含邊界條件，每條附 `file:line` 證據——原「短註」的升級。
+- **設計決策**：為什麼這樣設計；來源是 code／git 歷史／ADR，推測需標注。
+- **實作細節**：設定類事實。
+
+`architecture.md` 的中段（原本是圖後接短註）改為**模組職責表 + 資料流敘事**；`db-schema.md` 在既有欄位證據之外增加**欄位語意表**（每個欄位的商業意義，而非只有型別）。
+
+**分層對齊**：行為規則屬**可驗證層**（check 逐條驗證）；目的、設計決策、overview 屬**意圖層**（僅結構性變動時檢查，drift 頻率低）。
 
 ## 5. Manifest（`docs/.docalign.yml`）
 
@@ -53,7 +66,7 @@ doc-align 是一個文件對齊工具，解決兩件事：
 ```yaml
 docs:
   - path: flows/refund.md
-    type: sequence            # architecture | use-case | sequence | class | db-schema
+    type: sequence            # architecture | use-case | sequence | class | db-schema | overview
     watch:                    # 這份文件描述的程式碼範圍（glob）
       - src/billing/**
       - src/api/routes/refund.py
@@ -152,3 +165,7 @@ CodeGraph 為**選用加速**：有索引時用它查 symbol 與 call path（更
 3. **Phase 3**：GitHub Action 範本與 PR 留言整合。
 
 每個 phase 結束都有可用的產出，不需等全部完成才受益。
+
+## 修訂紀錄
+
+- 2026-07-21：文件形式由「圖＋短註」升級為「圖＋結構化敘事」（使用者實際使用回饋：短註不足以重建商業邏輯）。

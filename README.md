@@ -1,6 +1,6 @@
 # doc-align
 
-讓 repo 內的輕量文件集（Mermaid 圖 + 短註）與程式碼保持對齊的工具。
+讓 repo 內的文件集（Mermaid 圖 + 結構化敘事：目的、行為規則、設計決策、overview 導讀）與程式碼保持對齊的工具。
 工具只報告差異，由人決定文件過時還是程式碼有問題。
 
 設計文件：docs/superpowers/specs/2026-07-20-doc-align-design.md
@@ -75,6 +75,6 @@ job（這是 lint，不是 drift 報告）。
           watch:
             - migrations/**
 
-  `type` 必須是 `architecture`、`use-case`、`sequence`、`class`、`db-schema` 之一；`watch` 與 `last_verified` 可省略（新文件尚未驗證過時）。
+  `type` 必須是 `architecture`、`use-case`、`sequence`、`class`、`db-schema`、`overview` 之一；`watch` 與 `last_verified` 可省略（新文件尚未驗證過時）。
 - schema-diff 只支援 SQL migrations（CREATE TABLE / ALTER ADD·DROP COLUMN / DROP TABLE），其他格式由 agent 語意分析 fallback
 - mermaid-check 是啟發式結構檢查，非完整語法驗證

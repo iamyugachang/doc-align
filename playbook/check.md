@@ -23,7 +23,10 @@ Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `doc
 4. **逐文件驗證**：對每份 status 為 `affected` 的文件，依 `type` 選擇方法。
    `unverified` 的文件視同全量：對整份文件做同樣驗證，並在報告註明原因
    （缺少或失效的 last_verified）。若 repo 有程式碼索引工具（如 codegraph）優先用它
-   查 symbol 與呼叫路徑；否則搜尋原始碼。
+   查 symbol 與呼叫路徑；否則搜尋原始碼。行為規則段落逐條驗證（見步驟 5）；
+   目的與情境／設計決策等敘事段落、以及 overview 的詞彙表與導讀順序，屬**意圖層**，
+   僅在觸發結構性變動判準（同下方 architecture／use-case 的判準）時才檢查，drift
+   頻率低。
    - **db-schema**：`--sql` 路徑從 manifest 的 watch patterns 演算推導：取 pattern 中
      第一個萬用字元（`*`／`?`）之前的目錄前綴（如 `migrations/**` → `migrations/`；
      `db/migrations/*.sql` → `db/migrations/`）。watch 有多個 pattern 時依序嘗試，
@@ -31,22 +34,24 @@ Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `doc
      `node <SCRIPTS>/schema-diff.js --doc <文件路徑> --sql <推導出的路徑>`；
      所有 pattern 都推導不出任何 `.sql` 檔時，比照下述 `unsupported` 流程處理。
      `status: unsupported` 或 `unsupportedStatements` 非空時，改以語意分析補驗：
-     閱讀 ORM models 或 migration 原始碼，對照文件的 erDiagram 與欄位短註。
+     閱讀 ORM models 或 migration 原始碼，對照文件的 erDiagram 與欄位語意表。
    - **class**：讀取文件中的 classDiagram，逐一確認圖中的類別、屬性、方法、關係
      在程式碼中存在且正確。改名、刪除、關係改變都是 drift。
    - **sequence**：讀取 sequence diagram，沿實際呼叫鏈逐步確認：每一步的呼叫者、
      被呼叫者、順序、條件分支是否仍成立。只驗證 matchedFiles 相關的流程段落即可，
      但發現上下游明顯不一致時應一併回報。
-   - **architecture / use-case**：只在 matchedFiles 含**結構性變動**
-     （新增／刪除模組或目錄、進入點增減、外部依賴變更）時，判斷圖與短註是否仍正確；
-     純實作層變動直接標記為無影響。`--full` 模式或文件為 `unverified` 時，
-     changed-scope 不提供 matchedFiles，結構性變動門檻不適用，改為直接對照 repo
-     目前的整體結構驗證圖是否仍正確。
+   - **architecture / use-case / overview**：只在 matchedFiles 含**結構性變動**
+     （新增／刪除模組或目錄、進入點增減、外部依賴變更）時，判斷圖與敘事段落是否仍正確；
+     overview 額外檢查詞彙表與文件導讀順序是否仍對應目前的文件集。純實作層變動直接
+     標記為無影響。`--full` 模式或文件為 `unverified` 時，changed-scope 不提供
+     matchedFiles，結構性變動門檻不適用，改為直接對照 repo 目前的整體結構驗證內容
+     是否仍正確。
    - **script 失敗的通用處理**：任何機械驗證 script 當機或以非零狀態退出（非上述已定義
      的 `unsupported` 回報）時，視該文件為無法機械驗證，改用語意分析補驗，並在報告的
      「涵蓋範圍」一節記錄此次 script 失敗。
-5. **短註驗證**：驗證圖的同時，檢查該文件短註裡的行為宣告
-   （「當 X 條件成立時系統會 Y」）是否仍與程式碼一致。
+5. **行為規則與敘事段落驗證**：驗證圖的同時，逐條檢查該文件「行為規則」段落裡的行為
+   宣告（「當 X 條件成立時系統會 Y」）是否仍與程式碼一致；「目的與情境」「設計決策」
+   等敘事段落依步驟 4 的意圖層原則，僅在觸發結構性變動判準時一併檢查。
 6. **產出報告**（格式見下）。報告本身輸出給使用者，不寫入檔案。
 
 ## Drift 報告格式
