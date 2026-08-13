@@ -54,6 +54,8 @@ const CONSTRAINT_HEADS = new Set(['primary', 'foreign', 'unique', 'constraint', 
 const IGNORABLE_STATEMENTS = [
   /^insert\s+into\s/i,     // seed data
   /^create\s+database\s/i, // database-level, not table-level
+  /^create\s+schema\s/i,   // schema-level, not table-level
+  /^select\s+/i,           // verification queries
   /^\\/,                   // psql meta-commands (\c, \connect, ...)
 ];
 
@@ -65,7 +67,7 @@ function isIgnorable(stmt) {
 // tables are keyed by their bare, lowercased name because Mermaid docs use
 // bare names. Two tables with the same name in different schemas are treated
 // as one — out of scope for this parser.
-const SCHEMA_PREFIX = '(?:"?\\w+"?\\.)?';
+const SCHEMA_PREFIX = '(?:"?\\w+"?\\.)*';
 
 function findMatchingParen(str, openIdx) {
   let depth = 0;

@@ -69,6 +69,26 @@ test('schema-qualified table names are keyed by the bare table name', () => {
   assert.deepEqual(Object.keys(tables.customers.columns).sort(), ['email', 'id', 'name']);
 });
 
+test('multi-part schema-qualified Trino table names are keyed by the bare table name', () => {
+  const { tables, unsupported } = parseSqlDdl(`
+    CREATE SCHEMA IF NOT EXISTS iceberg.warehouse
+    WITH (location = 's3a://warehouse/');
+    CREATE TABLE IF NOT EXISTS iceberg.warehouse.employees (
+      id INTEGER,
+      salary DECIMAL(10, 2)
+    )
+    WITH (
+      format = 'PARQUET',
+      partitioning = ARRAY['dept']
+    );
+    SELECT 'employees' AS tbl, COUNT(*) AS rows FROM iceberg.warehouse.employees;
+  `);
+  assert.deepEqual(Object.keys(tables), ['employees']);
+  assert.equal(tables.employees.columns.id.type, 'int');
+  assert.equal(tables.employees.columns.salary.type, 'number');
+  assert.deepEqual(unsupported, []);
+});
+
 // --- hardening: multi-word types ---
 
 test('normalizeType maps multi-word SQL types onto doc-level types', () => {
@@ -120,9 +140,11 @@ test('parseSqlDdl handles CRLF line endings', () => {
 test('seed-style statements are ignored, not reported unsupported', () => {
   const { tables, unsupported } = parseSqlDdl(`
     CREATE DATABASE shop;
+    CREATE SCHEMA IF NOT EXISTS shop.public;
     \\c shop
     CREATE TABLE users (id INT);
     INSERT INTO users (id) VALUES (1), (2);
+    SELECT COUNT(*) FROM users;
   `);
   assert.deepEqual(Object.keys(tables), ['users']);
   assert.deepEqual(unsupported, []);
