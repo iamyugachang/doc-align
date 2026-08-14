@@ -1,6 +1,6 @@
 ---
 name: doc-align
-description: 偵測 docs/ 文件（Mermaid 圖＋短註）與程式碼的 drift 並提出更新建議。用法：/doc-align check [--full | --range <git range>]、/doc-align sync、/doc-align init [--repair]
+description: 偵測 docs/ 文件（Mermaid 圖＋結構化敘事）與程式碼的 drift 並提出更新建議，亦可渲染單頁 HTML handbook。用法：/doc-align check [--full | --range <git range>]、/doc-align sync、/doc-align init [--repair]、/doc-align render [--out <path>]
 ---
 
 # doc-align（Claude Code adapter）
