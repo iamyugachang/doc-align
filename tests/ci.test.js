@@ -73,3 +73,41 @@ test('untrusted step-output/context expressions are spliced via env:, never dire
     }
   }
 });
+
+// ── GitLab 範本（結構與 GitHub 版不同，單獨驗證）─────────────────────────────
+
+const GITLAB = 'ci/doc-align-gitlab.yml';
+
+test('gitlab template triggers on MR and never fails on drift', () => {
+  const y = readFileSync(ROOT + GITLAB, 'utf8');
+  assert.match(y, /merge_request_event/, 'runs on MR pipelines');
+  assert.ok(!/exit 1/.test(y), 'never fails the job on drift');
+  assert.match(y, /<!-- doc-align-report -->/, 'has upsert marker');
+  assert.match(y, /playbook\/check\.md/, 'points the agent at the check playbook');
+});
+
+test('gitlab template: gate → mermaid lint → LLM, in order and gated', () => {
+  const y = readFileSync(ROOT + GITLAB, 'utf8');
+  const gateIdx = y.indexOf('ci-gate.js');
+  const lintIdx = y.indexOf('mermaid-check.js');
+  const llmIdx = y.indexOf('opencode run');
+  assert.ok(gateIdx > -1 && lintIdx > -1 && llmIdx > -1, 'all three steps present');
+  assert.ok(gateIdx < lintIdx && lintIdx < llmIdx, 'gate precedes lint precedes LLM');
+  assert.match(y, /\[ "\$SKIP" = "true" \]/, 'LLM gated on cheap-gate skip');
+});
+
+test('gitlab template: LLM goes through OpenAI-compatible custom provider', () => {
+  const y = readFileSync(ROOT + GITLAB, 'utf8');
+  assert.match(y, /@ai-sdk\/openai-compatible/, 'opencode custom provider');
+  for (const v of ['DOC_ALIGN_LLM_BASE_URL', 'DOC_ALIGN_LLM_API_KEY', 'DOC_ALIGN_LLM_MODEL',
+                   'DOC_ALIGN_GITLAB_TOKEN', 'DOC_ALIGN_REPO_URL']) {
+    assert.ok(y.includes(v), `documents/uses ${v}`);
+  }
+});
+
+test('gitlab template upserts a single MR note (PUT when found, POST otherwise)', () => {
+  const y = readFileSync(ROOT + GITLAB, 'utf8');
+  assert.match(y, /-X PUT/, 'updates existing note');
+  assert.match(y, /-X POST/, 'creates note when absent');
+  assert.match(y, /merge_requests\/\$CI_MERGE_REQUEST_IID\/notes/, 'targets MR notes API');
+});

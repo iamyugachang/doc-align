@@ -1,5 +1,5 @@
 ---
-description: doc-align — 偵測 docs/ 文件與程式碼的 drift（check）、套用文件更新（sync）、初始化文件集（init）、生成單頁 HTML handbook（render）
+description: doc-align — 偵測 docs/ 文件與程式碼的 drift（check）、套用文件更新（sync）、初始化文件集（init）、生成單頁 HTML handbook（render）、接入 CI（configure）
 ---
 
 doc-align repo 根目錄（由安裝 symlink 解析；兩個安裝位置擇一命中）：
@@ -8,7 +8,7 @@ doc-align repo 根目錄（由安裝 symlink 解析；兩個安裝位置擇一�
 
 你是 doc-align 的執行 agent。上方輸出即 DOC_ALIGN_ROOT。使用者參數：$ARGUMENTS
 
-1. 取第一個參數為子命令：`check`、`sync`、`init` 或 `render`；其餘參數原樣帶入流程。
+1. 取第一個參數為子命令：`check`、`sync`、`init`、`render` 或 `configure`；其餘參數原樣帶入流程。
    `--repair` 僅對 `init` 有效、`--out <path>` 僅對 `render` 有效，出現在其他子命令
    時視同不認得的 flag。無子命
    令、未知子命令或未知 flag → 說明用法後結束。`--full` 與 `--range` 同時出現時

@@ -36,6 +36,7 @@
 - `/doc-align init` — 從零 bootstrap 文件集與 manifest
 - `/doc-align init --repair` — manifest 損壞時重建
 - `/doc-align render [--out <path>]` — 把文件集渲染成單頁 HTML handbook（預設 `docs/handbook.html`：側欄導覽、Mermaid 圖 CDN 渲染、深淺色主題；零 LLM 成本）
+- `/doc-align configure` — 初次接入：偵測 repo 的 GitHub／GitLab remotes，安裝對應 CI 範本並列出待設定的 secrets/variables 清單
 
 ## 安裝原理
 
@@ -48,12 +49,24 @@ symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
 
 目標 repo 必須已完成 doc-align init（存在 docs/.docalign.yml），否則閘門會在每個 PR 上報錯。
 
-把 `ci/doc-align-claude.yml`（或 opencode 版）複製到目標 repo 的
+建議直接跑 `/doc-align configure`（自動偵測平台並安裝範本）。手動安裝：
+
+**GitHub Actions**：把 `ci/doc-align-claude.yml`（或 opencode 版）複製到目標 repo 的
 `.github/workflows/doc-align.yml`，並設定：
 
 1. Secret `ANTHROPIC_API_KEY`（LLM 步驟用）。
 2. doc-align repo 若為 private：Secret `DOC_ALIGN_TOKEN`（read 權限 PAT），
    並依範本內註解調整 clone URL。
+
+**GitLab CI（公司內部／OpenAI-compatible LLM）**：把 `ci/doc-align-gitlab.yml` 複製到
+目標 repo 的 `.gitlab/doc-align.yml`，`.gitlab-ci.yml` 以 `include: - local:
+'.gitlab/doc-align.yml'` 引用，並在 CI/CD Variables 設定
+`DOC_ALIGN_LLM_BASE_URL`／`DOC_ALIGN_LLM_API_KEY`／`DOC_ALIGN_LLM_MODEL`（內部
+OpenAI-compatible gateway）與 `DOC_ALIGN_GITLAB_TOKEN`（api scope，發 MR note）；
+內網連不到 GitHub 時另設 `DOC_ALIGN_REPO_URL` 指向 doc-align 內部鏡像。
+
+同一 repo 同時推 GitHub 與內部 GitLab 時，兩份 CI 檔一起進版控即可——
+GitHub 只讀 `.github/workflows/`、GitLab 只讀 `.gitlab-ci.yml`，互不干擾。
 
 行為：PR 未觸及任何 watch 範圍時零成本跳過；有觸及時執行 check 並以單一留言
 （upsert）回報 drift；**永不 fail job**——drift 是資訊，不是門檻。
