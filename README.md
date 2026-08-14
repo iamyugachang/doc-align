@@ -54,7 +54,7 @@ symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
 **GitHub Actions**：把 `ci/doc-align-claude.yml`（或 opencode 版）複製到目標 repo 的
 `.github/workflows/doc-align.yml`，並設定：
 
-1. Secret `ANTHROPIC_API_KEY`（LLM 步驟用）。
+1. Secret `DOC_ALIGN_LLM_API_KEY`（中立命名——claude 範本固定 Anthropic key；opencode 範本配 Variables `DOC_ALIGN_LLM_PROVIDER`／`DOC_ALIGN_LLM_MODEL`［／`DOC_ALIGN_LLM_BASE_URL`］可自由用各家 token）。
 2. doc-align repo 若為 private：Secret `DOC_ALIGN_TOKEN`（read 權限 PAT），
    並依範本內註解調整 clone URL。
 

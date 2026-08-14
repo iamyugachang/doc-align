@@ -1,5 +1,11 @@
 # doc-align drift check — 複製到目標 repo 的 .github/workflows/doc-align.yml
-# 需求：secrets.ANTHROPIC_API_KEY 或 opencode 支援的其他 provider key——依 opencode 設定調整 env
+# LLM 憑證是 provider 中立的，設定（Settings → Secrets and variables → Actions）：
+#   Secret  DOC_ALIGN_LLM_API_KEY  — 你選的 provider 的 API key（唯一 secret）
+#   Variable DOC_ALIGN_LLM_PROVIDER — opencode provider id（anthropic／openai／google／
+#                                     openrouter…，預設 anthropic）
+#   Variable DOC_ALIGN_LLM_MODEL    — 該 provider 的 model id（必填）
+#   Variable DOC_ALIGN_LLM_BASE_URL — 選配：自建 OpenAI-compatible gateway 的 endpoint
+#                                     （含 /v1）；設了就走 custom provider，忽略 PROVIDER
 # doc-align repo 若為 private 另需 secrets.DOC_ALIGN_TOKEN
 # 非阻塞設計：drift 只留言，不 fail job。
 name: doc-align
@@ -40,14 +46,42 @@ jobs:
       - name: Drift check (LLM)
         if: steps.gate.outputs.skip != 'true'
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DOC_ALIGN_LLM_API_KEY: ${{ secrets.DOC_ALIGN_LLM_API_KEY }}
+          DOC_ALIGN_LLM_PROVIDER: ${{ vars.DOC_ALIGN_LLM_PROVIDER || 'anthropic' }}
+          DOC_ALIGN_LLM_MODEL: ${{ vars.DOC_ALIGN_LLM_MODEL }}
+          DOC_ALIGN_LLM_BASE_URL: ${{ vars.DOC_ALIGN_LLM_BASE_URL }}
           RANGE: ${{ steps.gate.outputs.range }}
         run: |
           curl -fsSL https://opencode.ai/install | bash
           export PATH="$HOME/.opencode/bin:$PATH"
-          opencode run \
+          if [ -n "$DOC_ALIGN_LLM_BASE_URL" ]; then
+            # 自建 OpenAI-compatible gateway → opencode custom provider
+            node -e '
+              const cfg = {
+                "$schema": "https://opencode.ai/config.json",
+                provider: { internal: {
+                  npm: "@ai-sdk/openai-compatible", name: "Internal LLM",
+                  options: { baseURL: process.env.DOC_ALIGN_LLM_BASE_URL,
+                             apiKey: process.env.DOC_ALIGN_LLM_API_KEY },
+                  models: { [process.env.DOC_ALIGN_LLM_MODEL]: { name: process.env.DOC_ALIGN_LLM_MODEL } },
+                } },
+              };
+              require("fs").writeFileSync("opencode.json", JSON.stringify(cfg, null, 2));
+            '
+            MODEL_FLAG="internal/$DOC_ALIGN_LLM_MODEL"
+          else
+            # 內建 provider → 把中立 secret 映射到該 provider 認的 env 名
+            case "$DOC_ALIGN_LLM_PROVIDER" in
+              google) export GOOGLE_GENERATIVE_AI_API_KEY="$DOC_ALIGN_LLM_API_KEY" ;;
+              *) KEY_ENV="$(echo "$DOC_ALIGN_LLM_PROVIDER" | tr 'a-z-' 'A-Z_')_API_KEY"
+                 export "$KEY_ENV=$DOC_ALIGN_LLM_API_KEY" ;;
+            esac
+            MODEL_FLAG="$DOC_ALIGN_LLM_PROVIDER/$DOC_ALIGN_LLM_MODEL"
+          fi
+          opencode run -m "$MODEL_FLAG" \
             "你是 doc-align 的執行 agent。讀取 $RUNNER_TEMP/doc-align/playbook/check.md 並完全遵循其步驟；<SCRIPTS> 為 $RUNNER_TEMP/doc-align/scripts；以 --range $RANGE 執行。輸出只包含 drift 報告本體（markdown），不要任何前後綴。" \
             > "$RUNNER_TEMP/report.md"
+          rm -f opencode.json
       - name: Upsert PR comment
         if: steps.gate.outputs.skip != 'true'
         env:

@@ -26,14 +26,18 @@
      可能複雜），輸出應加入的 `include` 區塊請使用者自行貼入。
 5. **輸出設定清單**：依安裝的平台列出使用者必須在平台 UI 完成的設定，逐項附
    用途說明：
-   - GitHub（Settings → Secrets and variables → Actions）：`ANTHROPIC_API_KEY`
-     （LLM 步驟）；doc-align repo 為 private 時另需 `DOC_ALIGN_TOKEN`（read 權限
-     PAT，並依範本內註解調整 clone URL）。
-   - GitLab（Settings → CI/CD → Variables，勾 Masked）：`DOC_ALIGN_LLM_BASE_URL`
-     ／`DOC_ALIGN_LLM_API_KEY`／`DOC_ALIGN_LLM_MODEL`（內部 OpenAI-compatible
-     LLM）、`DOC_ALIGN_GITLAB_TOKEN`（api scope 的 project access token，發 MR
-     note 用）、內網連不到 GitHub 時 `DOC_ALIGN_REPO_URL` 指向 doc-align 的內部
-     鏡像（並提醒需先建立該鏡像並保持同步）。
+   - GitHub（Settings → Secrets and variables → Actions）：Secret
+     `DOC_ALIGN_LLM_API_KEY`（中立命名，填你選的 provider 的 key；claude 範本
+     固定 Anthropic，opencode 範本另以 Variables `DOC_ALIGN_LLM_PROVIDER`／
+     `DOC_ALIGN_LLM_MODEL`／`DOC_ALIGN_LLM_BASE_URL` 自由選家）；doc-align repo
+     為 private 時另需 `DOC_ALIGN_TOKEN`（read 權限 PAT，並依範本內註解調整
+     clone URL）。
+   - GitLab（Settings → CI/CD → Variables，勾 Masked）：`DOC_ALIGN_LLM_API_KEY`
+     ＋（`DOC_ALIGN_LLM_BASE_URL`＋`DOC_ALIGN_LLM_MODEL`：內部 OpenAI-compatible
+     gateway，或改設 `DOC_ALIGN_LLM_PROVIDER` 用公開 provider）、
+     `DOC_ALIGN_GITLAB_TOKEN`（api scope 的 project access token，發 MR note
+     用）、內網連不到 GitHub 時 `DOC_ALIGN_REPO_URL` 指向 doc-align 的內部鏡像
+     （並提醒需先建立該鏡像並保持同步）。
 6. **驗證指引**：提醒使用者 commit 這些 CI 檔後，各平台開一個碰到 watch 範圍的
    測試 PR／MR 確認留言流程；未觸及 watch 的 PR 應零成本跳過。
 7. **總結**：列出寫入／建議的檔案、偵測到的平台、尚待使用者完成的設定項。
