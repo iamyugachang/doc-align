@@ -7,7 +7,7 @@
 
 ## 結構
 
-- `playbook/` — 核心流程指令（agent 無關的 markdown）
+- `playbook/` — 核心流程指令（agent 無關的 markdown；check／sync／init／render）
 - `scripts/` — deterministic Node.js scripts（零依賴）
 - `adapters/claude-code/` — Claude Code skill 薄殼
 - `adapters/opencode/` — opencode command 薄殼
@@ -35,6 +35,7 @@
 - `/doc-align sync` — 套用文件更新並推進 manifest
 - `/doc-align init` — 從零 bootstrap 文件集與 manifest
 - `/doc-align init --repair` — manifest 損壞時重建
+- `/doc-align render [--out <path>]` — 把文件集渲染成單頁 HTML handbook（預設 `docs/handbook.html`：側欄導覽、Mermaid 圖 CDN 渲染、深淺色主題；零 LLM 成本）
 
 ## 安裝原理
 
