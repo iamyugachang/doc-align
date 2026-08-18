@@ -1,8 +1,12 @@
 # doc-align drift check — GitLab CI 範本（內部 OpenAI-compatible LLM）
 #
-# 兩種 LLM runner，以 DOC_ALIGN_LLM_RUNNER 切換：
+# 四種 LLM runner，以 DOC_ALIGN_LLM_RUNNER 切換：
 #   direct（預設）— 不裝任何 agent，script 直接打 chat/completions（llm-check.js）；
 #                   只需 BASE_URL／API_KEY／MODEL，最適合內網。
+#   agent         — doc-align 內建 agent loop（bin/doc-align.js）：同一組
+#                   BASE_URL／API_KEY／MODEL，不裝任何外部 agent，模型透過受限工具
+#                   （讀檔／grep／git 唯讀／自家 scripts）自行探索；需 gateway 支援
+#                   OpenAI tool calling，呼叫次數多於 direct。
 #   opencode      — 裝 opencode 跑完整 agent playbook（可自由探索 code），支援
 #                   BASE_URL 自建 gateway 或 PROVIDER 選公開 provider。
 #   custom        — 你自己的 harness（任何語言／框架：Python script、LangGraph、
@@ -21,7 +25,7 @@
 #                             https://llm.internal/v1）；direct 模式必填。
 #                             opencode 模式留空則改用 DOC_ALIGN_LLM_PROVIDER 指定內建
 #                             provider（anthropic／openai／google／openrouter…）
-#   DOC_ALIGN_LLM_RUNNER    — 選配：direct（預設）／opencode／custom
+#   DOC_ALIGN_LLM_RUNNER    — 選配：direct（預設）／agent／opencode／custom
 #   DOC_ALIGN_LLM_CUSTOM_CMD— custom 模式必填：以 sh -c 執行的一行指令，例
 #                             `python3 tools/doc_drift.py` 或
 #                             `pip install -q -r tools/req.txt && python3 tools/drift.py`
@@ -74,6 +78,11 @@ doc-align:
     - |
       if [ "${DOC_ALIGN_LLM_RUNNER:-direct}" = "direct" ]; then
         node "$DOC_ALIGN_DIR/scripts/llm-check.js" --range "$RANGE" --out report.md
+      fi
+    # ── Drift check：agent（DOC_ALIGN_LLM_RUNNER=agent 時，內建 tool loop，無外部 agent）──
+    - |
+      if [ "${DOC_ALIGN_LLM_RUNNER:-direct}" = "agent" ]; then
+        node "$DOC_ALIGN_DIR/bin/doc-align.js" check --range "$RANGE" --yes --quiet --out report.md
       fi
     # ── Drift check：opencode（DOC_ALIGN_LLM_RUNNER=opencode 時）──
     - |

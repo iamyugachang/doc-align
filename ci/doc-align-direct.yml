@@ -18,6 +18,11 @@
 #
 # 與 agent 版差異：LLM 只看 script 事先打包的內容（文件全文＋range 內相關 diff＋
 # 文件引用的證據片段），不會自己再去翻 code；PR range 有界，通常足夠。
+#
+# 選配 Variable DOC_ALIGN_LLM_RUNNER=agent — 改用 doc-align 內建的 agent loop
+# （bin/doc-align.js：同一組 BASE_URL／API_KEY／MODEL，模型透過受限工具自行讀檔、grep、
+# 看 diff，可補 direct 打包看不到的上下游）；需要 gateway 支援 OpenAI tool calling，
+# LLM 呼叫次數較多。未設或其他值＝direct 單次打包。
 # 非阻塞設計：drift 只留言，不 fail job。
 name: doc-align
 on:
@@ -60,8 +65,14 @@ jobs:
           DOC_ALIGN_LLM_API_KEY: ${{ secrets.DOC_ALIGN_LLM_API_KEY }}
           DOC_ALIGN_LLM_BASE_URL: ${{ vars.DOC_ALIGN_LLM_BASE_URL }}
           DOC_ALIGN_LLM_MODEL: ${{ vars.DOC_ALIGN_LLM_MODEL }}
+          DOC_ALIGN_LLM_RUNNER: ${{ vars.DOC_ALIGN_LLM_RUNNER }}
           RANGE: ${{ steps.gate.outputs.range }}
-        run: node "$RUNNER_TEMP/doc-align/scripts/llm-check.js" --range "$RANGE" --out "$RUNNER_TEMP/report.md"
+        run: |
+          if [ "$DOC_ALIGN_LLM_RUNNER" = "agent" ]; then
+            node "$RUNNER_TEMP/doc-align/bin/doc-align.js" check --range "$RANGE" --yes --quiet --out "$RUNNER_TEMP/report.md"
+          else
+            node "$RUNNER_TEMP/doc-align/scripts/llm-check.js" --range "$RANGE" --out "$RUNNER_TEMP/report.md"
+          fi
       - name: Drift check (custom harness)
         if: steps.gate.outputs.skip != 'true' && vars.DOC_ALIGN_LLM_CUSTOM_CMD != ''
         env:

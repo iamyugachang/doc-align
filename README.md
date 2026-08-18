@@ -7,11 +7,50 @@
 
 ## 結構
 
-- `playbook/` — 核心流程指令（agent 無關的 markdown；check／sync／init／render）
+- `playbook/` — 核心流程指令（agent 無關的 markdown；check／sync／init／render／configure）
 - `scripts/` — deterministic Node.js scripts（零依賴）
+- `bin/doc-align.js` — 獨立 CLI：內建最小 agent loop（tool calling）直打 OpenAI-compatible API，不需任何外部 agent
 - `adapters/claude-code/` — Claude Code skill 薄殼
 - `adapters/opencode/` — opencode command 薄殼
 - `tests/` — 單元與整合測試（`npm test`）
+
+三種使用方式，同一套 playbook／scripts：
+
+| 方式 | 適合 | LLM 從哪來 |
+|---|---|---|
+| **當 skill 用**（Claude Code／opencode／oh-my-pi…） | 平常就開著 agent 的人 | 該 agent 自己的 |
+| **獨立 CLI**（`doc-align check`） | 不想開 agent、或公司電腦只有內部 gateway | 內建 agent loop 直打 OpenAI-compatible endpoint |
+| **CI**（GitHub Actions／GitLab CI） | PR／MR 自動留言 | 同 CLI（direct 或 agent runner），或 opencode／claude／自帶 harness |
+
+## 安裝（獨立 CLI）
+
+    git clone https://github.com/iamyugachang/doc-align && cd doc-align
+    npm link            # 或 ln -s "$(pwd)/bin/doc-align.js" ~/.local/bin/doc-align
+
+LLM 設定放環境變數或 `~/.config/doc-align/env`（每行 `KEY=VALUE`，env 優先）：
+
+    DOC_ALIGN_LLM_BASE_URL=https://llm.internal/v1   # 任何 OpenAI-compatible endpoint，含 /v1
+    DOC_ALIGN_LLM_API_KEY=...
+    DOC_ALIGN_LLM_MODEL=your-model-id
+
+之後 `cd` 到目標 repo：
+
+    doc-align render                       # 零 LLM，先確認整條路通
+    doc-align check                        # 增量 drift 偵測（agent 模式）
+    doc-align check --range origin/main...HEAD
+    doc-align check --range origin/main...HEAD --direct   # 單次打包（CI 預設走這條，便宜、有界）
+    doc-align init                         # 從零 bootstrap 文件集（會問你裁決；--yes 全自動）
+    doc-align sync                         # 套用 check 的建議並推進 manifest
+    doc-align configure                    # 安裝 CI 範本
+
+CLI 的 agent 模式怎麼運作：把對應的 playbook 當 system prompt，模型透過**受限工具**自行執行——
+`read_file`／`list_dir`／`glob`／`grep`／`git`（唯讀子命令）／`run_script`（只能跑 doc-align 自家
+scripts）／`ask_user`；`init`／`sync`／`configure` 額外開 `write_file`／`move_file`（只能寫 repo 內或系統
+暫存目錄），`check` 完全唯讀。任意 shell 預設關閉，需要 codegraph 之類外部工具時加 `--allow-shell`。
+進度印到 stderr（`--verbose` 含工具輸出預覽、`--quiet` 靜音），最終報告印到 stdout 或 `--out <path>`。
+其他選項：`-C <dir>`、`--model`、`--max-turns`（預設 60；超過 exit 2）、`--yes`（非互動：ask_user
+一律回「非互動」，agent 依 playbook 的非互動情境處理）。gateway 必須支援 OpenAI tool calling；不支援時
+用 `check --direct`（純文字單次呼叫）。
 
 ## 安裝（Claude Code）
 
@@ -106,11 +145,11 @@ symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
 
 | 範本 | runner | 特性 |
 |---|---|---|
-| `ci/doc-align-direct.yml` | 無（script 直接打 OpenAI-compatible `chat/completions`） | 零 agent 依賴、只需 BASE_URL／API_KEY／MODEL、任何 gateway 皆可；LLM 只看 script 打包的內容（文件＋range 內相關 diff＋證據片段） |
+| `ci/doc-align-direct.yml` | 無（script 直接打 OpenAI-compatible `chat/completions`） | 零 agent 依賴、只需 BASE_URL／API_KEY／MODEL、任何 gateway 皆可；LLM 只看 script 打包的內容（文件＋range 內相關 diff＋證據片段）。設 Variable `DOC_ALIGN_LLM_RUNNER=agent` 改走內建 agent loop（`bin/doc-align.js`，同一組憑證，模型可自行讀檔／grep／看 diff；需 gateway 支援 tool calling） |
 | `ci/doc-align-opencode.yml` | opencode（agent） | 可自由探索 code；PROVIDER 選公開 provider 或 BASE_URL 接自建 gateway |
 | `ci/doc-align-claude.yml` | claude CLI（agent） | 固定 Anthropic |
 
-`ci/doc-align-gitlab.yml` 同時內建 direct（預設）／opencode／custom 三種 runner，以 `DOC_ALIGN_LLM_RUNNER` 切換；`ci/doc-align-direct.yml` 設了 Variable `DOC_ALIGN_LLM_CUSTOM_CMD` 也會改跑 custom。custom＝你自己的 harness，見下方「自帶 harness」。
+`ci/doc-align-gitlab.yml` 同時內建 direct（預設）／agent／opencode／custom 四種 runner，以 `DOC_ALIGN_LLM_RUNNER` 切換；`ci/doc-align-direct.yml` 設了 Variable `DOC_ALIGN_LLM_CUSTOM_CMD` 也會改跑 custom。custom＝你自己的 harness，見下方「自帶 harness」。
 
 **GitHub Actions**：把上表其一複製到目標 repo 的
 `.github/workflows/doc-align.yml`，並設定：
@@ -182,6 +221,7 @@ job（這是 lint，不是 drift 報告）。
 | `changed-scope.js` | 依 manifest watch 算出受影響文件（增量／`--range`／`--full`） | `node scripts/changed-scope.js [--range <git range>] [--full]` |
 | `ci-gate.js` | PR 廉價閘門：`skip`、`affectedDocs`、`changedDocs`（docs 內變動的 .md） | `node scripts/ci-gate.js --base <ref>`（或 `--range`） |
 | `llm-check.js` | direct 模式 drift check：打包文件＋diff＋證據片段直打 OpenAI-compatible API | `node scripts/llm-check.js --range <git range> [--out <path>]`；env `DOC_ALIGN_LLM_BASE_URL`／`_API_KEY`／`_MODEL`［／`_MAX_CHARS`／`_TIMEOUT_MS`］ |
+| `../bin/doc-align.js` | 獨立 CLI（agent loop；見上方「安裝（獨立 CLI）」） | `node bin/doc-align.js check\|sync\|init\|render\|configure …`；agent 零件在 `scripts/lib/agent-{loop,tools,prompt}.js`，可被自帶 harness 重用 |
 | `manifest.js` | 讀寫 `docs/.docalign.yml` | `read`／`add-doc --doc <p> --type <t> --watch <glob>...`／`set-watch`／`set-verified --doc <p> --commit <sha>` |
 | `render-handbook.js` | 單頁 HTML handbook | `node scripts/render-handbook.js [--out <path>]` |
 | `generate-doc-set.js` | 依 JSON spec 一次寫出文件集＋manifest（init 內部使用） | `node scripts/generate-doc-set.js --spec <path\|-> [--docs-dir docs] [--force] [--commit <sha>]` |

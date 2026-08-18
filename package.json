@@ -2,8 +2,22 @@
   "name": "doc-align",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "test": "node --test tests/*.test.js"
-  }
+  },
+  "version": "0.2.0",
+  "bin": {
+    "doc-align": "bin/doc-align.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "playbook",
+    "adapters",
+    "ci",
+    "README.md"
+  ]
 }
