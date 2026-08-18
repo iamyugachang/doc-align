@@ -51,7 +51,17 @@ symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
 
 建議直接跑 `/doc-align configure`（自動偵測平台並安裝範本）。手動安裝：
 
-**GitHub Actions**：把 `ci/doc-align-claude.yml`（或 opencode 版）複製到目標 repo 的
+三種 LLM runner 範本，依環境選一：
+
+| 範本 | runner | 特性 |
+|---|---|---|
+| `ci/doc-align-direct.yml` | 無（script 直接打 OpenAI-compatible `chat/completions`） | 零 agent 依賴、只需 BASE_URL／API_KEY／MODEL、任何 gateway 皆可；LLM 只看 script 打包的內容（文件＋range 內相關 diff＋證據片段） |
+| `ci/doc-align-opencode.yml` | opencode（agent） | 可自由探索 code；PROVIDER 選公開 provider 或 BASE_URL 接自建 gateway |
+| `ci/doc-align-claude.yml` | claude CLI（agent） | 固定 Anthropic |
+
+`ci/doc-align-gitlab.yml` 同時內建 direct（預設）與 opencode 兩種 runner，以 `DOC_ALIGN_LLM_RUNNER` 切換。
+
+**GitHub Actions**：把上表其一複製到目標 repo 的
 `.github/workflows/doc-align.yml`，並設定：
 
 1. Secret `DOC_ALIGN_LLM_API_KEY`（中立命名——claude 範本固定 Anthropic key；opencode 範本配 Variables `DOC_ALIGN_LLM_PROVIDER`／`DOC_ALIGN_LLM_MODEL`［／`DOC_ALIGN_LLM_BASE_URL`］可自由用各家 token）。

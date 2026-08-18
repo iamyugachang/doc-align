@@ -15,9 +15,11 @@
    → 兩側都裝（雙平台 repo 各自的 CI 檔互不干擾：GitHub 只讀
    `.github/workflows/`，GitLab 只讀 `.gitlab-ci.yml`）。偵測不到任何 remote 時，
    詢問使用者目標平台。
-3. **GitHub 側安裝**（適用時）：詢問使用者 LLM runner 用 claude 還是 opencode
-   （非互動情境預設 claude），把 `<DOC_ALIGN_ROOT>/ci/doc-align-claude.yml`（或
-   `doc-align-opencode.yml`）複製到 `.github/workflows/doc-align.yml`。目標檔已
+3. **GitHub 側安裝**（適用時）：詢問使用者 LLM runner 用 direct（不依賴 agent、
+   script 直接打 OpenAI-compatible endpoint）、opencode 還是 claude（非互動情境
+   預設 direct），把 `<DOC_ALIGN_ROOT>/ci/doc-align-direct.yml`（或
+   `doc-align-opencode.yml`／`doc-align-claude.yml`）複製到
+   `.github/workflows/doc-align.yml`。目標檔已
    存在時不覆寫，改為輸出 diff 請使用者裁決。
 4. **GitLab 側安裝**（適用時）：把 `<DOC_ALIGN_ROOT>/ci/doc-align-gitlab.yml`
    複製到 `.gitlab/doc-align.yml`。接著處理 `.gitlab-ci.yml`：
@@ -33,8 +35,9 @@
      為 private 時另需 `DOC_ALIGN_TOKEN`（read 權限 PAT，並依範本內註解調整
      clone URL）。
    - GitLab（Settings → CI/CD → Variables，勾 Masked）：`DOC_ALIGN_LLM_API_KEY`
-     ＋（`DOC_ALIGN_LLM_BASE_URL`＋`DOC_ALIGN_LLM_MODEL`：內部 OpenAI-compatible
-     gateway，或改設 `DOC_ALIGN_LLM_PROVIDER` 用公開 provider）、
+     ＋`DOC_ALIGN_LLM_BASE_URL`＋`DOC_ALIGN_LLM_MODEL`（direct runner，預設）；
+     要改用 opencode agent 另設 `DOC_ALIGN_LLM_RUNNER=opencode`（可再以
+     `DOC_ALIGN_LLM_PROVIDER` 選公開 provider）、
      `DOC_ALIGN_GITLAB_TOKEN`（api scope 的 project access token，發 MR note
      用）、內網連不到 GitHub 時 `DOC_ALIGN_REPO_URL` 指向 doc-align 的內部鏡像
      （並提醒需先建立該鏡像並保持同步）。

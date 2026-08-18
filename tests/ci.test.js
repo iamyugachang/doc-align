@@ -111,3 +111,40 @@ test('gitlab template upserts a single MR note (PUT when found, POST otherwise)'
   assert.match(y, /-X POST/, 'creates note when absent');
   assert.match(y, /merge_requests\/\$CI_MERGE_REQUEST_IID\/notes/, 'targets MR notes API');
 });
+
+// ── direct 模式（不依賴 agent）───────────────────────────────────────────────
+
+const DIRECT = 'ci/doc-align-direct.yml';
+
+test('direct template: gate → mermaid lint → llm-check.js, no agent runtime installed', () => {
+  const y = readFileSync(ROOT + DIRECT, 'utf8');
+  assert.match(y, /pull_request/);
+  assert.match(y, /pull-requests:\s*write/);
+  const gateIdx = y.indexOf('ci-gate.js');
+  const lintIdx = y.indexOf('mermaid-check.js');
+  const llmIdx = y.indexOf('llm-check.js');
+  assert.ok(gateIdx > -1 && lintIdx > -1 && llmIdx > -1, 'all three steps present');
+  assert.ok(gateIdx < lintIdx && lintIdx < llmIdx, 'gate precedes lint precedes LLM');
+  assert.match(y, /steps\.gate\.outputs\.skip != 'true'/, 'LLM conditioned on gate');
+  assert.ok(!/opencode run|opencode\.ai\/install|claude -p|npm install -g @anthropic-ai/.test(y), 'no agent CLI dependency');
+  assert.match(y, /<!-- doc-align-report -->/, 'upsert marker');
+  assert.ok(!/exit 1/.test(y), 'never fails on drift');
+  for (const v of ['DOC_ALIGN_LLM_API_KEY', 'DOC_ALIGN_LLM_BASE_URL', 'DOC_ALIGN_LLM_MODEL']) {
+    assert.ok(y.includes(v), `uses ${v}`);
+  }
+});
+
+test('gitlab template: direct runner is the default and opencode is opt-in; MR note still posted in direct mode', () => {
+  const y = readFileSync(ROOT + GITLAB, 'utf8');
+  assert.match(y, /DOC_ALIGN_LLM_RUNNER:-direct/, 'defaults to direct');
+  assert.match(y, /llm-check\.js/, 'direct path calls llm-check');
+  const opencodeIf = y.indexOf('= "opencode" ]; then');
+  const opencodeRun = y.indexOf('opencode run');
+  const noteIdx = y.indexOf('Upsert MR note');
+  assert.ok(opencodeIf > -1 && opencodeIf < opencodeRun, 'opencode install/run guarded by runner check');
+  assert.ok(opencodeRun < noteIdx, 'note upsert comes after both runners');
+  // 早退 exit 0 只允許出現在 cheap-gate skip 那一行；LLM 區塊不得 exit，否則 direct 模式會跳過 MR note
+  const exits = [...y.matchAll(/exit 0/g)].map((m) => m.index);
+  assert.equal(exits.length, 1, 'exactly one early exit (the cheap-gate skip)');
+  assert.ok(exits[0] < y.indexOf('Drift check'), 'the only exit is before the LLM section');
+});
