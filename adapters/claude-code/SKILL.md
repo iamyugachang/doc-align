@@ -13,6 +13,17 @@ description: 偵測 docs/ 文件（Mermaid 圖＋結構化敘事）與程式碼�
 
     DOC_ALIGN_ROOT=$(dirname "$(dirname "$(realpath <本 skill 目錄>)")")
 
+若執行環境沒有告訴你本 skill 目錄在哪（例如 oh-my-pi 等會匯入 `.claude/skills`
+的其他 agent），依序嘗試，第一個成功的即為 DOC_ALIGN_ROOT：
+
+    [ -n "$DOC_ALIGN_ROOT" ] && echo "$DOC_ALIGN_ROOT"                       # 環境變數優先
+    dirname "$(dirname "$(realpath ~/.claude/skills/doc-align)")"          # 全域安裝
+    dirname "$(dirname "$(realpath .claude/skills/doc-align)")"            # 專案內安裝
+
+都失敗就停下來請使用者提供 doc-align repo 路徑（或設定 `DOC_ALIGN_ROOT`），不要猜。
+確認方式：`$DOC_ALIGN_ROOT/playbook/check.md` 與 `$DOC_ALIGN_ROOT/scripts/manifest.js`
+必須存在。
+
 - playbook 位於 `$DOC_ALIGN_ROOT/playbook/`
 - `<SCRIPTS>` 即 `$DOC_ALIGN_ROOT/scripts`
 

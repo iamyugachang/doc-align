@@ -24,8 +24,59 @@
     mkdir -p ~/.config/opencode/commands
     ln -sfn "$(pwd)/adapters/opencode/commands/doc-align.md" ~/.config/opencode/commands/doc-align.md
 
-之後在 opencode 內使用 `/doc-align check|sync|init|render|configure`。
-（尚未在真機驗證——安裝後請先跑一次 `/doc-align check` 確認 repo 根解析正確。）
+再到 `~/.config/opencode/opencode.json`（或 `.jsonc`）放行 doc-align 目錄——opencode
+會把專案目錄以外的讀取視為 `external_directory`，互動模式每次都問、`opencode run`
+非互動模式則**直接自動拒絕**，adapter 讀不到 playbook 就會停在第一步：
+
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "permission": {
+        "external_directory": { "/abs/path/to/doc-align/**": "allow" }
+      }
+    }
+
+之後在 opencode 內使用 `/doc-align check|sync|init|render|configure`；非互動：
+`opencode run --command doc-align "check --range origin/main...HEAD"`（參數整段加引號，
+否則 `--range` 會被 opencode 自己吃掉）。已在真機驗證（1.18.x，`render` 全程跑通）；
+`opencode run` 偶爾會在讀完 playbook 後停住，`opencode run --continue "繼續"` 即可接續。
+
+公司內部 OpenAI-compatible gateway 的 provider 設定寫在同一個檔即可（與 CI 範本相同）：
+
+    "provider": {
+      "internal": {
+        "npm": "@ai-sdk/openai-compatible", "name": "Internal LLM",
+        "options": { "baseURL": "https://llm.internal/v1", "apiKey": "{env:DOC_ALIGN_LLM_API_KEY}" },
+        "models": { "your-model-id": { "name": "your-model-id" } }
+      }
+    }
+
+然後 `opencode -m internal/your-model-id`。
+
+## 安裝（其他 agent：oh-my-pi、Codex、Cursor…）
+
+doc-align 本體是 markdown playbook＋Node scripts，任何能讀檔、跑 shell 的 agent 都能用；
+差別只在「怎麼讓 agent 找到 repo 根」：
+
+- **會匯入 `.claude/skills` 的 agent**（oh-my-pi／omp 會，見其 docs/skills.md）：照
+  Claude Code 的方式 symlink 到 `~/.claude/skills/doc-align`（或專案內
+  `.claude/skills/doc-align`）即可，通常會出現 `/skill:doc-align`。SKILL.md 內建
+  fallback：不知道自己被裝在哪時，依序試 `$DOC_ALIGN_ROOT` 環境變數 →
+  `~/.claude/skills/doc-align` → `.claude/skills/doc-align`。
+- **其他任何 agent**：clone 到固定位置，`export DOC_ALIGN_ROOT=/abs/path/doc-align`，
+  然後直接給它一句 prompt：
+
+      讀取 $DOC_ALIGN_ROOT/playbook/check.md 並完全遵循其步驟；<SCRIPTS> 為
+      $DOC_ALIGN_ROOT/scripts；以目前 repo 為對象執行 check --range origin/main...HEAD。
+
+  這也就是 CI 範本裡餵給 opencode／claude 的那句話。子命令換 playbook 檔名即可。
+- 若該 agent 有專案目錄外讀取的權限沙箱（opencode 有、Claude Code 的 `-p` 要
+  `--dangerously-skip-permissions`），要先對 doc-align 目錄放行，否則第一步讀
+  playbook 就會被擋。
+
+**公司電腦 checklist**：(1) Node ≥ 18＋git；(2) 能 clone doc-align——內網連不到 GitHub
+就先建內部鏡像（CI 的 `DOC_ALIGN_REPO_URL` 同一個）；(3) 上面對應 agent 的 symlink／
+`DOC_ALIGN_ROOT`；(4) agent 的專案外讀取權限放行；(5) LLM 走內部 gateway 的 provider
+設定；(6) 在目標 repo 跑一次 `/doc-align render`（零 LLM）確認整條路通，再跑 `check`。
 
 ## 用法
 

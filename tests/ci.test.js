@@ -183,3 +183,17 @@ test('direct template: DOC_ALIGN_LLM_CUSTOM_CMD swaps llm-check.js for a custom 
   assert.match(y, /ci-gate\.js" --base "origin\/\$BASE_REF" \| tee "\$RUNNER_TEMP\/gate\.json"/, 'gate JSON persisted for the harness');
   assert.match(customBlock, /\[ -s "\$DOC_ALIGN_REPORT" \]/, 'empty report is a harness error');
 });
+
+test('opencode CI templates grant external_directory permission on the doc-align dir (opencode run auto-rejects otherwise)', () => {
+  for (const f of ['ci/doc-align-opencode.yml', GITLAB]) {
+    const y = readFileSync(ROOT + f, 'utf8');
+    const permIdx = y.indexOf('permission: { external_directory:');
+    const runIdx = y.indexOf('opencode run');
+    assert.ok(permIdx > -1, `${f}: writes permission.external_directory`);
+    assert.ok(permIdx < runIdx, `${f}: permission written before opencode run`);
+    assert.match(y, /process\.env\.DOC_ALIGN_DIR \+ "\/\*\*"/, `${f}: permission keyed on DOC_ALIGN_DIR`);
+    assert.match(y, /export DOC_ALIGN_DIR=/, `${f}: DOC_ALIGN_DIR exported for the config`);
+    // permission is unconditional; provider block only when BASE_URL set
+    assert.match(y, /if \(process\.env\.DOC_ALIGN_LLM_BASE_URL\) cfg\.provider/, `${f}: provider block conditional`);
+  }
+});

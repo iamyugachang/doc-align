@@ -80,24 +80,28 @@ doc-align:
       if [ "${DOC_ALIGN_LLM_RUNNER:-direct}" = "opencode" ]; then
       curl -fsSL https://opencode.ai/install | bash
       export PATH="$HOME/.opencode/bin:$PATH"
-      if [ -n "$DOC_ALIGN_LLM_BASE_URL" ]; then
-        node -e '
-          const cfg = {
-            "$schema": "https://opencode.ai/config.json",
-            provider: {
-              internal: {
-                npm: "@ai-sdk/openai-compatible",
-                name: "Internal LLM",
-                options: {
-                  baseURL: process.env.DOC_ALIGN_LLM_BASE_URL,
-                  apiKey: process.env.DOC_ALIGN_LLM_API_KEY,
-                },
-                models: { [process.env.DOC_ALIGN_LLM_MODEL]: { name: process.env.DOC_ALIGN_LLM_MODEL } },
-              },
+      # opencode 非互動模式會自動拒絕專案目錄外的讀取；doc-align 工具目錄在
+      # $DOC_ALIGN_DIR，必須以 permission 明確放行。BASE_URL 有值時同檔再加
+      # custom provider（@ai-sdk/openai-compatible 接內部 gateway）。
+      node -e '
+        const cfg = {
+          "$schema": "https://opencode.ai/config.json",
+          permission: { external_directory: { [process.env.DOC_ALIGN_DIR + "/**"]: "allow" } },
+        };
+        if (process.env.DOC_ALIGN_LLM_BASE_URL) cfg.provider = {
+          internal: {
+            npm: "@ai-sdk/openai-compatible",
+            name: "Internal LLM",
+            options: {
+              baseURL: process.env.DOC_ALIGN_LLM_BASE_URL,
+              apiKey: process.env.DOC_ALIGN_LLM_API_KEY,
             },
-          };
-          require("fs").writeFileSync("opencode.json", JSON.stringify(cfg, null, 2));
-        '
+            models: { [process.env.DOC_ALIGN_LLM_MODEL]: { name: process.env.DOC_ALIGN_LLM_MODEL } },
+          },
+        };
+        require("fs").writeFileSync("opencode.json", JSON.stringify(cfg, null, 2));
+      '
+      if [ -n "$DOC_ALIGN_LLM_BASE_URL" ]; then
         MODEL_FLAG="internal/$DOC_ALIGN_LLM_MODEL"
       else
         case "$DOC_ALIGN_LLM_PROVIDER" in
