@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runAgent, trimContext } from '../scripts/lib/agent-loop.js';
-import { createExecutor, toolDefinitions, GIT_READONLY } from '../scripts/lib/agent-tools.js';
+import { createExecutor, toolDefinitions, GIT_READONLY, gitDeniedReason } from '../scripts/lib/agent-tools.js';
 import { buildAgentSystemPrompt, buildAgentUserPrompt } from '../scripts/lib/agent-prompt.js';
 import { chatTurn, loadEnvFile } from '../scripts/lib/llm-client.js';
 
@@ -134,6 +134,18 @@ test('executor: git allowlist and run_script allowlist', async () => {
   assert.match(await exec('git', { args: ['commit', '-m', 'x'] }), /^ERROR: 只允許唯讀/);
   assert.match(await exec('git', { args: ['push'] }), /^ERROR/);
   assert.ok(GIT_READONLY.includes('diff'));
+  // 唯讀子命令內的寫入／執行外部程式旗標也要擋
+  assert.match(await exec('git', { args: ['remote', 'add', 'evil', 'http://x'] }), /^ERROR: git remote 只允許/);
+  assert.match(await exec('git', { args: ['branch', 'oops'] }), /^ERROR: git branch 帶 positional/);
+  assert.match(await exec('git', { args: ['branch', '-D', 'main'] }), /^ERROR: git branch 只允許查詢旗標/);
+  assert.match(await exec('git', { args: ['grep', '-O', 'sh', 'x'] }), /^ERROR: 不允許 git 旗標 -O/);
+  assert.match(await exec('git', { args: ['diff', '--output=/tmp/x'] }), /^ERROR: 不允許 git 旗標/);
+  assert.match(await exec('git', { args: ['diff', '--no-index', '/etc/passwd', '/etc/hosts'] }), /^ERROR/);
+  assert.match(await exec('git', { args: ['branch', '--list', 'ma*'] }), /main/);
+  assert.match(await exec('git', { args: ['branch', '--show-current'] }), /main/);
+  assert.match(await exec('git', { args: ['remote', '-v'] }), /無輸出|origin/);
+  assert.equal(gitDeniedReason(['log', '--oneline', '-5']), null);
+  assert.equal(gitDeniedReason(['remote', 'get-url', 'origin']), null);
   const cs = await exec('run_script', { script: 'changed-scope.js', args: ['--full'] });
   assert.match(cs, /^exit 0\n\[stdout\]\n/);
   assert.match(cs, /"mode": ?"full"/);

@@ -256,6 +256,27 @@ pre-commit 範例（只跑機械層、零 LLM）：
     files=$(git diff --cached --name-only --diff-filter=d -- 'docs/**/*.md' 'docs/*.md')
     [ -z "$files" ] || node /path/to/doc-align/scripts/mermaid-check.js $files
 
+## 安全性與供應鏈審查（拉進公司 repo 前）
+
+- **零 runtime 依賴**：`package.json` 沒有 `dependencies`／`devDependencies`，只用 Node 內建模組；
+  `package-lock.json` 只含 root package，`npm audit` 恆為 0 vulnerabilities（自身 CI 每次 push 跑
+  `npm test` ＋ `npm audit --audit-level=low`，Node 18／20／22）。沒有 npm 套件就沒有 npm CVE 面。
+- **不用 `eval`／`new Function`**；唯一的動態執行點是 (a) CLI 的 `shell` 工具——預設關閉，需
+  `--allow-shell` 明確打開；(b) CI 的 `custom` runner——執行的是**你自己**設在 CI Variable 的指令。
+- **agent 模式的工具沙箱**（`scripts/lib/agent-tools.js`）：`check` 完全唯讀；寫檔只在
+  init／sync／configure 開放且限 repo 內或系統暫存目錄（`.git/` 也擋）；`git` 只放行唯讀子命令
+  白名單，且再擋 `--output`／`-O`／`--ext-diff`／`--no-index`、`remote add…`、`branch <name>`
+  等會寫入或執行外部程式的旗標；`run_script` 只能跑 doc-align 自家 scripts。設計前提是
+  **repo 內容可能夾帶 prompt injection**，模型即使被誘導也無法越權。
+- **對外連線**只有你設定的 `DOC_ALIGN_LLM_BASE_URL`（LLM）與 CI 內的 GitHub／GitLab API
+  （貼留言）。無遙測、無自動更新。
+- 兩個可選的外部來源，公司政策不允許就避開：(1) CI 的 `opencode`／`claude` runner 會
+  `curl | bash` 或 `npm install -g` 安裝 agent CLI——用 `direct`／`agent` runner 就完全不需要；
+  (2) `render` 產出的 handbook 在瀏覽器端從 jsdelivr CDN 載入 mermaid.js 畫圖（離線時顯示原始碼），
+  不影響 CLI／CI 本身。
+- 內網拉不到 GitHub：clone 一份到內部 GitLab 當鏡像，CI 設 `DOC_ALIGN_REPO_URL`，CLI 直接 clone
+  鏡像後 `npm link`；整個工具就是這個 repo，沒有其他下載步驟。
+
 ## 已知限制
 
 - manifest 格式（工具維護，一般不需手動編輯）。格式是嚴格子集（縮排固定、`path` 必須是每個 entry 的第一個 key）：

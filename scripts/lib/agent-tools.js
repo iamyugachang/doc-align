@@ -96,6 +96,35 @@ export function listRepoFiles(cwd) {
   }
 }
 
+// 唯讀 git 子命令裡仍有會寫入或執行外部程式的旗標，逐一擋掉（模型可能被 repo 內容誘導）。
+const GIT_DENY_FLAGS = [
+  /^--output(=|$)/,            // diff/log/show/format-patch 寫檔
+  /^-O/, /^--open-files-in-pager/, // grep 啟動外部程式
+  /^--ext-diff$/, /^--no-index$/,  // 外部 diff 程式；讀 repo 外檔案
+  /^--exec(=|$)/,               // rev-list/log 不該有；保險
+];
+const GIT_BRANCH_ALLOW = new Set(['-a', '-r', '-v', '-vv', '--all', '--remotes', '--list', '--show-current', '--contains', '--no-contains', '--merged', '--no-merged', '--points-at', '--sort', '--format', '--column', '--no-column', '--abbrev']);
+export function gitDeniedReason(args) {
+  const [sub, ...rest] = args;
+  for (const a of rest) for (const re of GIT_DENY_FLAGS) if (re.test(a)) return `不允許 git 旗標 ${a}`;
+  if (sub === 'remote') {
+    // remote 只允許列出／查 URL；add/remove/set-url/rename/prune 都是寫入
+    if (rest.length && !['-v', '--verbose', 'get-url', 'show'].includes(rest[0])) return `git remote 只允許 -v／get-url／show，不允許 ${rest[0]}`;
+    if (rest[0] === 'get-url' && rest.slice(1).some((a) => a.startsWith('-') && !['--push', '--all'].includes(a))) return 'git remote get-url 不允許其他旗標';
+  }
+  if (sub === 'branch') {
+    // 沒有 --list 等查詢旗標時，任何 positional 都會建立分支；-d/-m/-f 等一律禁止
+    const listing = rest.some((a) => ['--list', '--show-current', '--contains', '--no-contains', '--merged', '--no-merged', '--points-at'].some((f) => a === f || a.startsWith(`${f}=`)));
+    for (const a of rest) {
+      if (a.startsWith('-')) {
+        const key = a.includes('=') ? a.slice(0, a.indexOf('=')) : a;
+        if (!GIT_BRANCH_ALLOW.has(key)) return `git branch 只允許查詢旗標，不允許 ${a}`;
+      } else if (!listing) return 'git branch 帶 positional 會建立分支；請加 --list';
+    }
+  }
+  return null;
+}
+
 // 建立工具執行器：execute(name, args) → Promise<string>。
 export function createExecutor({
   cwd = process.cwd(), docAlignRoot, allowWrite = false, allowShell = false,
@@ -180,7 +209,8 @@ export function createExecutor({
       if (!Array.isArray(args) || !args.length) return 'ERROR: git 需要 args 陣列';
       const sub = args[0];
       if (!GIT_READONLY.includes(sub)) return `ERROR: 只允許唯讀 git 子命令（${GIT_READONLY.join('、')}），不允許 ${sub}`;
-      if (args.some((a) => /^--output(=|$)/.test(String(a)))) return 'ERROR: 不允許 --output';
+      const denied = gitDeniedReason(args.map(String));
+      if (denied) return `ERROR: ${denied}`;
       try {
         const { stdout, stderr } = await execFile('git', args.map(String), { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
         return (stdout || '') + (stderr ? `\n[stderr]\n${stderr}` : '') || '（無輸出）';
