@@ -59,7 +59,7 @@ symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
 | `ci/doc-align-opencode.yml` | opencode（agent） | 可自由探索 code；PROVIDER 選公開 provider 或 BASE_URL 接自建 gateway |
 | `ci/doc-align-claude.yml` | claude CLI（agent） | 固定 Anthropic |
 
-`ci/doc-align-gitlab.yml` 同時內建 direct（預設）與 opencode 兩種 runner，以 `DOC_ALIGN_LLM_RUNNER` 切換。
+`ci/doc-align-gitlab.yml` 同時內建 direct（預設）／opencode／custom 三種 runner，以 `DOC_ALIGN_LLM_RUNNER` 切換；`ci/doc-align-direct.yml` 設了 Variable `DOC_ALIGN_LLM_CUSTOM_CMD` 也會改跑 custom。custom＝你自己的 harness，見下方「自帶 harness」。
 
 **GitHub Actions**：把上表其一複製到目標 repo 的
 `.github/workflows/doc-align.yml`，並設定：
@@ -77,6 +77,41 @@ OpenAI-compatible gateway）與 `DOC_ALIGN_GITLAB_TOKEN`（api scope，發 MR no
 
 同一 repo 同時推 GitHub 與內部 GitLab 時，兩份 CI 檔一起進版控即可——
 GitHub 只讀 `.github/workflows/`、GitLab 只讀 `.gitlab-ci.yml`，互不干擾。
+
+### 自帶 harness（`DOC_ALIGN_LLM_RUNNER=custom`）
+
+不想用內建的 direct 單次打包，也不想裝 opencode／claude，而是自己寫 LLM 流程
+（純 Python script、LangGraph、Pydantic AI、內部 agent 平台……）時，把中段換掉即可。
+範本仍負責前段（clone 工具、`ci-gate.js` 閘門、`mermaid-check.js` lint）與後段
+（PR／MR 留言 upsert），中段執行你給的一行指令。
+
+設定：GitLab 設 `DOC_ALIGN_LLM_RUNNER=custom`＋`DOC_ALIGN_LLM_CUSTOM_CMD`；
+GitHub direct 範本只需 Variable `DOC_ALIGN_LLM_CUSTOM_CMD`（非空即切換）。指令以
+`sh -c` 執行，cwd＝目標 repo 根，環境為 `node:20`／`ubuntu-latest`＋node 20——需要
+其他 runtime（如 python）請在指令內自行安裝或改 image，例如
+`pip install -q -r tools/requirements.txt && python3 tools/doc_drift.py`。
+
+契約——你的指令可讀到這些 env，且必須寫出報告：
+
+| env | 意義 |
+|---|---|
+| `DOC_ALIGN_DIR` | doc-align 工具目錄（`scripts/`、`scripts/lib/`、`playbook/`） |
+| `DOC_ALIGN_RANGE` | 本 PR／MR 的 git range（`origin/<target>...HEAD`） |
+| `DOC_ALIGN_GATE` | `ci-gate.js` 的 JSON 輸出檔（`affectedDocs`／`changedDocs`／`range`） |
+| `DOC_ALIGN_REPORT` | **必須寫出**的 markdown 報告路徑；空檔或指令非零結束 → fail job（設定錯誤，不是 drift） |
+| `DOC_ALIGN_LLM_BASE_URL`／`_API_KEY`／`_MODEL` | 原樣透傳，要不要用隨你 |
+
+可重用的零件（都是零依賴、純函數或 CLI，見上方 scripts 表）：
+`changed-scope.js --range $DOC_ALIGN_RANGE`／`manifest.js read` 拿受影響文件與 watch；
+`scripts/lib/check-context.js` 的 `extractCitations`／`sliceLines`／`buildCheckPrompt`
+／`buildSystemPrompt`＋`extractReportFormat`（從 `playbook/check.md` 抽報告格式，
+讓 MR 上的報告與 direct 版長得一樣）；`scripts/lib/llm-client.js` 的
+`llmConfigFromEnv`／`chatComplete`。Python 端最省事是 `subprocess` 呼叫上述 CLI 拿
+JSON，prompt 打包邏輯照 `check-context.js` 移植。
+
+什麼時候值得自己包：要 agent 迴圈讓模型自己再去讀相關檔／找 callers（direct 只看
+事先打包的內容）、要多步驟（先分類 diff → 只深查相關段 → 彙整）、gateway 不是
+OpenAI-compatible、或要接自家 tracing／eval。
 
 行為：PR 未觸及任何 watch 範圍時零成本跳過；有觸及時執行 check 並以單一留言
 （upsert）回報 drift；**永不 fail job**——drift 是資訊，不是門檻。

@@ -148,3 +148,38 @@ test('gitlab template: direct runner is the default and opencode is opt-in; MR n
   assert.equal(exits.length, 1, 'exactly one early exit (the cheap-gate skip)');
   assert.ok(exits[0] < y.indexOf('Drift check'), 'the only exit is before the LLM section');
 });
+
+// ── custom runner（自帶 harness）────────────────────────────────────────────
+
+test('gitlab template: custom runner runs DOC_ALIGN_LLM_CUSTOM_CMD between opencode and note upsert, with the env contract', () => {
+  const y = readFileSync(ROOT + GITLAB, 'utf8');
+  const customIf = y.indexOf('= "custom" ]; then');
+  const opencodeRun = y.indexOf('opencode run');
+  const noteIdx = y.indexOf('Upsert MR note');
+  assert.ok(customIf > opencodeRun && customIf < noteIdx, 'custom block sits after opencode and before note upsert');
+  const block = y.slice(customIf, noteIdx);
+  assert.match(block, /DOC_ALIGN_LLM_CUSTOM_CMD:\?/, 'missing command fails loudly (parameter-expansion error, not exit 1)');
+  assert.match(block, /sh -c "\$DOC_ALIGN_LLM_CUSTOM_CMD"/, 'command runs via sh -c');
+  for (const v of ['DOC_ALIGN_RANGE', 'DOC_ALIGN_GATE', 'DOC_ALIGN_REPORT']) {
+    assert.ok(block.includes(`${v}=`), `exports ${v}`);
+  }
+  assert.match(block, /\[ -s report\.md \]/, 'empty report is a harness error');
+  assert.ok(!/exit 0|exit 1/.test(block), 'custom block never exits — note upsert must still run');
+});
+
+test('direct template: DOC_ALIGN_LLM_CUSTOM_CMD swaps llm-check.js for a custom harness step under the same gate', () => {
+  const y = readFileSync(ROOT + DIRECT, 'utf8');
+  const directStep = y.indexOf('Drift check (direct LLM call)');
+  const customStep = y.indexOf('Drift check (custom harness)');
+  const upsert = y.indexOf('Upsert PR comment');
+  assert.ok(directStep < customStep && customStep < upsert, 'custom step between direct step and upsert');
+  const directBlock = y.slice(directStep, customStep);
+  const customBlock = y.slice(customStep, upsert);
+  assert.match(directBlock, /vars\.DOC_ALIGN_LLM_CUSTOM_CMD == ''/, 'direct step only when no custom cmd');
+  assert.match(customBlock, /steps\.gate\.outputs\.skip != 'true' && vars\.DOC_ALIGN_LLM_CUSTOM_CMD != ''/, 'custom step gated and opt-in');
+  assert.match(customBlock, /DOC_ALIGN_LLM_CUSTOM_CMD: \$\{\{ vars\.DOC_ALIGN_LLM_CUSTOM_CMD \}\}/, 'command reaches the shell via env:, not spliced');
+  assert.match(customBlock, /DOC_ALIGN_RANGE: \$\{\{ steps\.gate\.outputs\.range \}\}/, 'range via env');
+  for (const v of ['DOC_ALIGN_DIR=', 'DOC_ALIGN_REPORT=', 'DOC_ALIGN_GATE=']) assert.ok(customBlock.includes(v), `exports ${v}`);
+  assert.match(y, /ci-gate\.js" --base "origin\/\$BASE_REF" \| tee "\$RUNNER_TEMP\/gate\.json"/, 'gate JSON persisted for the harness');
+  assert.match(customBlock, /\[ -s "\$DOC_ALIGN_REPORT" \]/, 'empty report is a harness error');
+});

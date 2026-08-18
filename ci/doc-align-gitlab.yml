@@ -5,6 +5,10 @@
 #                   只需 BASE_URL／API_KEY／MODEL，最適合內網。
 #   opencode      — 裝 opencode 跑完整 agent playbook（可自由探索 code），支援
 #                   BASE_URL 自建 gateway 或 PROVIDER 選公開 provider。
+#   custom        — 你自己的 harness（任何語言／框架：Python script、LangGraph、
+#                   Pydantic AI…）。範本只負責閘門與貼 note，中段執行
+#                   DOC_ALIGN_LLM_CUSTOM_CMD，契約：讀 env 的 range／manifest，
+#                   寫出 markdown 報告到 $DOC_ALIGN_REPORT。詳見下方「custom 契約」。
 #
 # 安裝：複製到目標 repo 的 .gitlab/doc-align.yml，並在 .gitlab-ci.yml 加上：
 #   include:
@@ -17,7 +21,10 @@
 #                             https://llm.internal/v1）；direct 模式必填。
 #                             opencode 模式留空則改用 DOC_ALIGN_LLM_PROVIDER 指定內建
 #                             provider（anthropic／openai／google／openrouter…）
-#   DOC_ALIGN_LLM_RUNNER    — 選配：direct（預設）或 opencode
+#   DOC_ALIGN_LLM_RUNNER    — 選配：direct（預設）／opencode／custom
+#   DOC_ALIGN_LLM_CUSTOM_CMD— custom 模式必填：以 sh -c 執行的一行指令，例
+#                             `python3 tools/doc_drift.py` 或
+#                             `pip install -q -r tools/req.txt && python3 tools/drift.py`
 #   DOC_ALIGN_GITLAB_TOKEN  — 具 api scope 的 project access token（發 MR note 用；
 #                             CI_JOB_TOKEN 權限不足以建立 note）
 #   DOC_ALIGN_REPO_URL      — 選配：doc-align 的 clone URL；內網無法連 GitHub 時
@@ -26,6 +33,21 @@
 # 行為與 GitHub 版一致：MR 未觸及 watch 範圍零成本跳過；docs/ 有變更先跑零成本
 # Mermaid 語法檢查（語法錯誤 fail job——這是 lint，不是 drift 報告）；有觸及才跑
 # LLM check，以單一 MR note（upsert）回報 drift；**drift 永不 fail job**。
+#
+# custom 契約（DOC_ALIGN_LLM_RUNNER=custom）：
+#   範本已把 doc-align 工具 clone 好、跑完閘門與 mermaid lint，接著執行
+#   `sh -c "$DOC_ALIGN_LLM_CUSTOM_CMD"`（cwd＝目標 repo 根，image node:20；
+#   需要 python 等其他 runtime 請在指令內自行安裝或改 image）。可用 env：
+#     DOC_ALIGN_DIR      — doc-align 工具目錄（scripts/、scripts/lib/、playbook/）
+#     DOC_ALIGN_RANGE    — 本 MR 的 git range（origin/<target>...HEAD）
+#     DOC_ALIGN_GATE     — ci-gate.js 的 JSON 輸出路徑（affectedDocs／changedDocs／range）
+#     DOC_ALIGN_REPORT   — 你必須寫出的 markdown 報告路徑（report.md）
+#     DOC_ALIGN_LLM_*    — 上面設定的 BASE_URL／API_KEY／MODEL 原樣透傳
+#   零件可重用：`node $DOC_ALIGN_DIR/scripts/changed-scope.js --range $DOC_ALIGN_RANGE`、
+#   `manifest.js read`；prompt 打包／報告格式在 scripts/lib/check-context.js；
+#   報告格式建議沿用 playbook/check.md 的「報告格式」段落，MR 上才與 direct 版一致。
+#   結束後範本檢查 $DOC_ALIGN_REPORT 存在且非空——空報告視為 harness 錯誤 fail job
+#   （這是設定錯誤，不是 drift）；harness 本身若非零結束也會 fail job。
 
 doc-align:
   stage: test
@@ -89,6 +111,14 @@ doc-align:
         "你是 doc-align 的執行 agent。讀取 $DOC_ALIGN_DIR/playbook/check.md 並完全遵循其步驟；<SCRIPTS> 為 $DOC_ALIGN_DIR/scripts；以 --range $RANGE 執行。輸出只包含 drift 報告本體（markdown），不要任何前後綴。" \
         > report.md
       rm -f opencode.json
+      fi
+    # ── Drift check：custom（DOC_ALIGN_LLM_RUNNER=custom 時，執行你自己的 harness）──
+    - |
+      if [ "${DOC_ALIGN_LLM_RUNNER:-direct}" = "custom" ]; then
+        : "${DOC_ALIGN_LLM_CUSTOM_CMD:?DOC_ALIGN_LLM_RUNNER=custom requires DOC_ALIGN_LLM_CUSTOM_CMD}"
+        export DOC_ALIGN_RANGE="$RANGE" DOC_ALIGN_GATE="$PWD/gate.json" DOC_ALIGN_REPORT="$PWD/report.md"
+        sh -c "$DOC_ALIGN_LLM_CUSTOM_CMD"
+        [ -s report.md ] || { echo "doc-align: custom harness did not write $DOC_ALIGN_REPORT" >&2; false; }
       fi
     # ── Upsert MR note ──
     - MARKER="<!-- doc-align-report -->"

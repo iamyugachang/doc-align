@@ -8,6 +8,14 @@
 #   Variable DOC_ALIGN_LLM_MODEL    — model id
 # doc-align repo 若為 private 另需 secrets.DOC_ALIGN_TOKEN
 #
+# 選配 Variable DOC_ALIGN_LLM_CUSTOM_CMD — 設了就改跑你自己的 harness（Python
+# script、LangGraph、Pydantic AI…）取代內建的 direct 呼叫。範本仍負責閘門、mermaid
+# lint 與貼 PR 留言；你的指令以 sh -c 執行（cwd＝repo 根，ubuntu-latest＋node 20，
+# 其他 runtime 自行安裝），可用 env：
+#   DOC_ALIGN_DIR（工具目錄）／DOC_ALIGN_RANGE（git range）／DOC_ALIGN_GATE（gate JSON）
+#   DOC_ALIGN_REPORT（必須寫出的 markdown 報告路徑）／DOC_ALIGN_LLM_*（原樣透傳）
+# 報告為空或指令非零結束 → fail job（設定錯誤，不是 drift）。
+#
 # 與 agent 版差異：LLM 只看 script 事先打包的內容（文件全文＋range 內相關 diff＋
 # 文件引用的證據片段），不會自己再去翻 code；PR range 有界，通常足夠。
 # 非阻塞設計：drift 只留言，不 fail job。
@@ -40,20 +48,33 @@ jobs:
         id: gate
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: node "$RUNNER_TEMP/doc-align/scripts/ci-gate.js" --base "origin/$BASE_REF"
+        run: node "$RUNNER_TEMP/doc-align/scripts/ci-gate.js" --base "origin/$BASE_REF" | tee "$RUNNER_TEMP/gate.json"
       - name: Mermaid lint on changed docs (no LLM)
         if: steps.gate.outputs.changed_docs != ''
         env:
           CHANGED_DOCS: ${{ steps.gate.outputs.changed_docs }}
         run: node "$RUNNER_TEMP/doc-align/scripts/mermaid-check.js" $CHANGED_DOCS
       - name: Drift check (direct LLM call)
-        if: steps.gate.outputs.skip != 'true'
+        if: steps.gate.outputs.skip != 'true' && vars.DOC_ALIGN_LLM_CUSTOM_CMD == ''
         env:
           DOC_ALIGN_LLM_API_KEY: ${{ secrets.DOC_ALIGN_LLM_API_KEY }}
           DOC_ALIGN_LLM_BASE_URL: ${{ vars.DOC_ALIGN_LLM_BASE_URL }}
           DOC_ALIGN_LLM_MODEL: ${{ vars.DOC_ALIGN_LLM_MODEL }}
           RANGE: ${{ steps.gate.outputs.range }}
         run: node "$RUNNER_TEMP/doc-align/scripts/llm-check.js" --range "$RANGE" --out "$RUNNER_TEMP/report.md"
+      - name: Drift check (custom harness)
+        if: steps.gate.outputs.skip != 'true' && vars.DOC_ALIGN_LLM_CUSTOM_CMD != ''
+        env:
+          DOC_ALIGN_LLM_API_KEY: ${{ secrets.DOC_ALIGN_LLM_API_KEY }}
+          DOC_ALIGN_LLM_BASE_URL: ${{ vars.DOC_ALIGN_LLM_BASE_URL }}
+          DOC_ALIGN_LLM_MODEL: ${{ vars.DOC_ALIGN_LLM_MODEL }}
+          DOC_ALIGN_LLM_CUSTOM_CMD: ${{ vars.DOC_ALIGN_LLM_CUSTOM_CMD }}
+          DOC_ALIGN_RANGE: ${{ steps.gate.outputs.range }}
+        run: |
+          export DOC_ALIGN_DIR="$RUNNER_TEMP/doc-align" DOC_ALIGN_REPORT="$RUNNER_TEMP/report.md"
+          export DOC_ALIGN_GATE="$RUNNER_TEMP/gate.json"
+          sh -c "$DOC_ALIGN_LLM_CUSTOM_CMD"
+          [ -s "$DOC_ALIGN_REPORT" ] || { echo "doc-align: custom harness did not write $DOC_ALIGN_REPORT" >&2; false; }
       - name: Upsert PR comment
         if: steps.gate.outputs.skip != 'true'
         env:

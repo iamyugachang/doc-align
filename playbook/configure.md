@@ -31,13 +31,16 @@
    - GitHub（Settings → Secrets and variables → Actions）：Secret
      `DOC_ALIGN_LLM_API_KEY`（中立命名，填你選的 provider 的 key；claude 範本
      固定 Anthropic，opencode 範本另以 Variables `DOC_ALIGN_LLM_PROVIDER`／
-     `DOC_ALIGN_LLM_MODEL`／`DOC_ALIGN_LLM_BASE_URL` 自由選家）；doc-align repo
+     `DOC_ALIGN_LLM_MODEL`／`DOC_ALIGN_LLM_BASE_URL` 自由選家；direct 範本可選
+     Variable `DOC_ALIGN_LLM_CUSTOM_CMD` 改跑自己的 harness）；doc-align repo
      為 private 時另需 `DOC_ALIGN_TOKEN`（read 權限 PAT，並依範本內註解調整
      clone URL）。
    - GitLab（Settings → CI/CD → Variables，勾 Masked）：`DOC_ALIGN_LLM_API_KEY`
      ＋`DOC_ALIGN_LLM_BASE_URL`＋`DOC_ALIGN_LLM_MODEL`（direct runner，預設）；
      要改用 opencode agent 另設 `DOC_ALIGN_LLM_RUNNER=opencode`（可再以
-     `DOC_ALIGN_LLM_PROVIDER` 選公開 provider）、
+     `DOC_ALIGN_LLM_PROVIDER` 選公開 provider）；要接自己的 harness 設
+     `DOC_ALIGN_LLM_RUNNER=custom`＋`DOC_ALIGN_LLM_CUSTOM_CMD`（契約見範本
+     檔頭與 README「自帶 harness」）、
      `DOC_ALIGN_GITLAB_TOKEN`（api scope 的 project access token，發 MR note
      用）、內網連不到 GitHub 時 `DOC_ALIGN_REPO_URL` 指向 doc-align 的內部鏡像
      （並提醒需先建立該鏡像並保持同步）。
