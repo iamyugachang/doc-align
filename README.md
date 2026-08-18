@@ -24,7 +24,7 @@
     mkdir -p ~/.config/opencode/commands
     ln -sfn "$(pwd)/adapters/opencode/commands/doc-align.md" ~/.config/opencode/commands/doc-align.md
 
-之後在 opencode 內使用 `/doc-align check|sync|init`。
+之後在 opencode 內使用 `/doc-align check|sync|init|render|configure`。
 （尚未在真機驗證——安裝後請先跑一次 `/doc-align check` 確認 repo 根解析正確。）
 
 ## 用法
@@ -35,7 +35,7 @@
 - `/doc-align sync` — 套用文件更新並推進 manifest
 - `/doc-align init` — 從零 bootstrap 文件集與 manifest
 - `/doc-align init --repair` — manifest 損壞時重建
-- `/doc-align render [--out <path>]` — 把文件集渲染成單頁 HTML handbook（預設 `docs/handbook.html`：側欄導覽、Mermaid 圖 CDN 渲染、深淺色主題；零 LLM 成本）
+- `/doc-align render [--out <path>]` — 把文件集渲染成單頁 HTML handbook（預設 `docs/handbook.html`：側欄導覽、Mermaid 圖 CDN 渲染、深淺色主題；零 LLM 成本）。想把個別圖重畫成簡報用的品牌風 HTML/PNG，見 `playbook/render.md` 末尾「可選：精緻版單圖」——走外部 skill diagram-design，手動、逐張、非 doc-align 依賴
 - `/doc-align configure` — 初次接入：偵測 repo 的 GitHub／GitLab remotes，安裝對應 CI 範本並列出待設定的 secrets/variables 清單
 
 ## 安裝原理
@@ -45,7 +45,7 @@ symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
 再以絕對路徑取用 `playbook/` 與 `scripts/`。因此 **clone 下來的整個 repo 就是安裝
 本體**，`git pull` 即完成更新。換機器＝`git clone` + `ln -sfn`，無需複製 scripts。
 
-## CI（GitHub Action，PR 留言）
+## CI（GitHub Actions／GitLab CI，PR／MR 留言）
 
 目標 repo 必須已完成 doc-align init（存在 docs/.docalign.yml），否則閘門會在每個 PR 上報錯。
 
@@ -83,6 +83,28 @@ GitHub 只讀 `.github/workflows/`、GitLab 只讀 `.gitlab-ci.yml`，互不干�
 變動到 docs/ 內文件的 PR 一律先跑零成本的 Mermaid 語法檢查，語法錯誤會 fail
 job（這是 lint，不是 drift 報告）。
 尚未在真實 PR 上 live 驗證；首次啟用請開一個測試 PR 確認留言流程。
+
+## 進階：直接呼叫 scripts（不經 agent）
+
+`scripts/` 全是零依賴 Node.js（ESM），可在 repo 根直接執行；CI 範本內部就是串這些。
+輸出一律 JSON 到 stdout，方便自己接 pre-commit、cron 或其他 agent。
+
+| script | 用途 | 用法 |
+|---|---|---|
+| `mermaid-check.js` | Mermaid 區塊啟發式 lint（括號平衡、未閉合字串、CJK 混寬括號） | `node scripts/mermaid-check.js <file.md>...`；有錯 exit 1 |
+| `schema-diff.js` | erDiagram 對 SQL migrations 的表／欄位差異 | `node scripts/schema-diff.js --doc docs/db-schema.md --sql <file-or-dir>` |
+| `changed-scope.js` | 依 manifest watch 算出受影響文件（增量／`--range`／`--full`） | `node scripts/changed-scope.js [--range <git range>] [--full]` |
+| `ci-gate.js` | PR 廉價閘門：`skip`、`affectedDocs`、`changedDocs`（docs 內變動的 .md） | `node scripts/ci-gate.js --base <ref>`（或 `--range`） |
+| `llm-check.js` | direct 模式 drift check：打包文件＋diff＋證據片段直打 OpenAI-compatible API | `node scripts/llm-check.js --range <git range> [--out <path>]`；env `DOC_ALIGN_LLM_BASE_URL`／`_API_KEY`／`_MODEL`［／`_MAX_CHARS`／`_TIMEOUT_MS`］ |
+| `manifest.js` | 讀寫 `docs/.docalign.yml` | `read`／`add-doc --doc <p> --type <t> --watch <glob>...`／`set-watch`／`set-verified --doc <p> --commit <sha>` |
+| `render-handbook.js` | 單頁 HTML handbook | `node scripts/render-handbook.js [--out <path>]` |
+| `generate-doc-set.js` | 依 JSON spec 一次寫出文件集＋manifest（init 內部使用） | `node scripts/generate-doc-set.js --spec <path\|-> [--docs-dir docs] [--force] [--commit <sha>]` |
+
+pre-commit 範例（只跑機械層、零 LLM）：
+
+    #!/bin/sh
+    files=$(git diff --cached --name-only --diff-filter=d -- 'docs/**/*.md' 'docs/*.md')
+    [ -z "$files" ] || node /path/to/doc-align/scripts/mermaid-check.js $files
 
 ## 已知限制
 
