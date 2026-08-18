@@ -27,16 +27,40 @@
     git clone https://github.com/iamyugachang/doc-align && cd doc-align
     npm link            # 或 ln -s "$(pwd)/bin/doc-align.js" ~/.local/bin/doc-align
 
-LLM 設定放環境變數或 `~/.config/doc-align/env`（每行 `KEY=VALUE`，env 優先）：
+### 設定 `DOC_ALIGN_LLM_*`
 
-    DOC_ALIGN_LLM_BASE_URL=https://llm.internal/v1   # 任何 OpenAI-compatible endpoint，含 /v1
-    DOC_ALIGN_LLM_API_KEY=...
-    DOC_ALIGN_LLM_MODEL=your-model-id
+三個變數，兩種放法。**放檔案**（推薦，設一次就好；CLI 啟動時自動讀取）：
 
-之後 `cd` 到目標 repo：
+    mkdir -p ~/.config/doc-align
+    cat > ~/.config/doc-align/env <<'EOF'
+    DOC_ALIGN_LLM_BASE_URL=https://你的gateway/v1
+    DOC_ALIGN_LLM_API_KEY=sk-xxx
+    DOC_ALIGN_LLM_MODEL=模型id
+    EOF
+    chmod 600 ~/.config/doc-align/env
 
-    doc-align render                       # 零 LLM，先確認整條路通
-    doc-align check                        # 增量 drift 偵測（agent 模式）
+或**直接 export**（臨時／CI）：
+
+    export DOC_ALIGN_LLM_BASE_URL=... DOC_ALIGN_LLM_API_KEY=... DOC_ALIGN_LLM_MODEL=...
+
+檔案格式每行 `KEY=VALUE`（`#` 註解、可加引號）；環境變數已有值時以環境變數優先，檔案只補缺的。
+
+| 變數 | 意義 | 範例 |
+|---|---|---|
+| `DOC_ALIGN_LLM_BASE_URL` | OpenAI-compatible endpoint，**含 `/v1`** | 公司內部 gateway `https://llm.internal/v1`；OpenAI `https://api.openai.com/v1`；Anthropic（OpenAI 相容層）`https://api.anthropic.com/v1`；OpenRouter `https://openrouter.ai/api/v1`；本機 Ollama `http://localhost:11434/v1` |
+| `DOC_ALIGN_LLM_API_KEY` | 該 endpoint 的 key（唯一 secret，中立命名） | Ollama 隨便填非空字串 |
+| `DOC_ALIGN_LLM_MODEL` | model id | `gpt-4o`／`claude-sonnet-4-5`／`anthropic/claude-sonnet-4.5`／`qwen2.5-coder` |
+| `DOC_ALIGN_LLM_TIMEOUT_MS` | 選配：單次請求逾時，預設 300000 | |
+| `DOC_ALIGN_AGENT_MAX_CONTEXT_CHARS` | 選配：agent 模式上下文字元預算，預設 400000（超過時從最舊的工具輸出開始省略） | |
+| `DOC_ALIGN_AGENT_MAX_TURNS` | 選配：agent 迴圈上限，預設 60（`--max-turns` 可覆寫） | |
+
+CI 用同一組名字：GitLab 放 CI/CD Variables（KEY 勾 Masked）；GitHub 放 Secret `DOC_ALIGN_LLM_API_KEY`＋Variables `DOC_ALIGN_LLM_BASE_URL`／`DOC_ALIGN_LLM_MODEL`。
+
+設好後 `cd` 到目標 repo，依序驗證：
+
+    doc-align render                       # 零 LLM，先確認 CLI 本身通
+    doc-align check --range HEAD~3...HEAD --verbose   # 走 agent 模式，確認 gateway 的 tool calling 通
+    doc-align check                        # 增量 drift 偵測（各文件自 last_verified 起算）
     doc-align check --range origin/main...HEAD
     doc-align check --range origin/main...HEAD --direct   # 單次打包（CI 預設走這條，便宜、有界）
     doc-align init                         # 從零 bootstrap 文件集（會問你裁決；--yes 全自動）
@@ -50,7 +74,7 @@ scripts）／`ask_user`；`init`／`sync`／`configure` 額外開 `write_file`�
 進度印到 stderr（`--verbose` 含工具輸出預覽、`--quiet` 靜音），最終報告印到 stdout 或 `--out <path>`。
 其他選項：`-C <dir>`、`--model`、`--max-turns`（預設 60；超過 exit 2）、`--yes`（非互動：ask_user
 一律回「非互動」，agent 依 playbook 的非互動情境處理）。gateway 必須支援 OpenAI tool calling；不支援時
-用 `check --direct`（純文字單次呼叫）。
+（通常是 `tools` 欄位被回 HTTP 4xx）改用 `check --direct`（純文字單次呼叫）。
 
 ## 安裝（Claude Code）
 
