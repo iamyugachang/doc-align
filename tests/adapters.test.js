@@ -69,3 +69,13 @@ test('init and check playbooks cover every manifest type (applicability + verifi
   assert.ok(init.includes('每條 DAG／pipeline 各一份文件'), 'one doc per DAG');
   assert.ok(init.includes('deps-check.js') && check.includes('deps-check.js'), 'layers mechanical check wired');
 });
+
+test('writing.md exists, is referenced by init and sync, and carries the core heuristics; optional-skills.md never vendors', () => {
+  const w = readFileSync(ROOT + 'playbook/writing.md', 'utf8');
+  for (const k of ['arc42', 'C4', 'Diátaxis', 'ADR', '每條箭頭要標文字', '不混象限', 'checklist']) assert.ok(w.includes(k), `writing.md mentions ${k}`);
+  assert.ok(readFileSync(ROOT + 'playbook/init.md', 'utf8').includes('playbook/writing.md'));
+  assert.ok(readFileSync(ROOT + 'playbook/sync.md', 'utf8').includes('writing.md'));
+  const o = readFileSync(ROOT + 'playbook/optional-skills.md', 'utf8');
+  assert.ok(o.includes('不複製進本 repo') && o.includes('DOC_ALIGN_SKILLS_DIR'));
+  assert.ok(!existsSync(ROOT + 'vendor'), 'no vendored third-party skills');
+});

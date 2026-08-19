@@ -7,7 +7,7 @@
 
 ## 結構
 
-- `playbook/` — 核心流程指令（agent 無關的 markdown；init／sync，以及 check＝sync 的偵測段、render、configure）
+- `playbook/` — 核心流程指令（agent 無關的 markdown；init／sync，以及 check＝sync 的偵測段、render、configure）；`writing.md`＝寫作心法（arc42／C4／Diátaxis／ADR／Google style 蒸餾版，init／sync 寫文件時遵守）；`optional-skills.md`＝可選外部 skill 的偵測與使用規則（不 vendor）
 - `scripts/` — deterministic Node.js scripts（零依賴）
 - `bin/doc-align.js` — 獨立 CLI：內建最小 agent loop（tool calling）直打 OpenAI-compatible API，不需任何外部 agent
 - `adapters/claude-code/` — Claude Code skill 薄殼

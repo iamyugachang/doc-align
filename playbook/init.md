@@ -79,7 +79,10 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
 4. **接手既存文件**（docs/ 已有內容但無 manifest 時）：先讀既有文件，盡量保留其
    結構與敘述——只修正與程式碼不符處、補缺漏、調整為本文件集的格式；接手中發現
    的錯誤記入報告。
-5. **撰寫文件**，遵守以下寫作規則（來自實測教訓，違反任一條都算未完成）：
+5. **撰寫文件**，先讀 `<DOC_ALIGN_ROOT>/playbook/writing.md`（寫作心法：讀者優先、
+   C4 的圖層級與 box／箭頭標註、不混象限、規則句寫法、迷你 ADR、句子規範、發布前
+   checklist；`<DOC_ALIGN_ROOT>` 未提供時為 `<SCRIPTS>` 的上一層），全程遵守；
+   再遵守以下寫作規則（來自實測教訓，違反任一條都算未完成）：
    - 每份文件依類型使用第 4 節定義的段落骨架：flows 用完整五段（目的與情境／
      圖／行為規則／設計決策／實作細節）；architecture 用 目的與情境／圖／
      模組職責表／資料流敘事／設計決策／實作細節；use-cases 用 目的與情境／圖／
@@ -152,7 +155,8 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
      deployment 的 watch 指向部署定義檔；permissions／api 的 watch 指向 RBAC
      定義／router 所在。
    - `--repair` 模式：從既有文件內容推導 type 與 watch。
-8. **自檢**：依 check playbook 以全量模式驗證每份剛完成的文件；發現自己寫錯的
+8. **自檢**：先用 writing.md 第 7 節的 checklist 逐份過一遍（讀者視角、圖的層級與
+   標註、重述、混象限、術語），再依 check playbook 以全量模式驗證每份剛完成的文件；發現自己寫錯的
    立即修正並重驗。全量自檢通過的文件逐一執行
    `node <SCRIPTS>/manifest.js set-verified --doc <path> --commit <目前 HEAD>`
    標記為已驗證。完整初始化模式下自檢不通過不得結束；`--repair` 模式不得重寫
