@@ -32,8 +32,9 @@ const VERSION = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).ver
 const USAGE = `doc-align ${VERSION} — 讓 docs/ 文件集與程式碼對齊
 
 用法：
-  doc-align init [--repair] [--ci] [--no-render]
-      初始化文件集＋manifest，結束自動生成 docs/handbook.html；--ci 順便接 CI
+  doc-align init [--repair] [--ci] [--style lean|rich] [--no-render]
+      初始化文件集＋manifest，結束自動生成 docs/handbook.html；--ci 順便接 CI；
+      --style 文件密度（預設 lean：圖優先、文字只寫圖說不了的關鍵）
   doc-align sync [--dry-run] [--range <git range> | --full] [--no-render]
       偵測 drift → 裁決 → 更新文件 → 推進 manifest → 自動 render
       --dry-run 只輸出 drift 報告、不寫任何檔案（CI 用這個）；--direct 改走單次打包（需 --range）
@@ -81,7 +82,7 @@ function parseCli(argv) {
     else if (a === '--out') o.out = take();
     else if (!o.sub && !a.startsWith('-')) o.sub = a;
     else if (a === '--full' || a === '--repair') o.passthrough.push(a);
-    else if (a === '--range') o.passthrough.push(a, take());
+    else if (a === '--range' || a === '--style') o.passthrough.push(a, take());
     else throw new Error(`不認得的參數：${a}`);
   }
   return o;
@@ -94,6 +95,8 @@ function validate(o) {
   if (o.sub === 'check') { o.sub = 'sync'; o.dryRun = true; }
   if (o.sub === 'configure') { o.sub = 'init'; o.ci = true; o.configureOnly = true; }
   if (has('--repair') && o.sub !== 'init') throw new Error('--repair 只適用於 init');
+  if (has('--style') && o.sub !== 'init') throw new Error('--style 只適用於 init');
+  if (has('--style') && !['lean', 'rich'].includes(o.passthrough[o.passthrough.indexOf('--style') + 1])) throw new Error('--style 須為 lean 或 rich');
   if (o.ci && o.sub !== 'init') throw new Error('--ci 只適用於 init');
   if ((has('--full') || has('--range')) && o.sub !== 'sync') throw new Error('--full／--range 只適用於 sync（或別名 check）');
   if (o.dryRun && o.sub !== 'sync') throw new Error('--dry-run 只適用於 sync');

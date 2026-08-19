@@ -63,7 +63,7 @@ CI 用同一組名字：GitLab 放 CI/CD Variables（KEY 勾 Masked）；GitHub 
     doc-align sync --dry-run                           # 增量 drift 報告（不寫檔）
     doc-align sync --dry-run --range origin/main...HEAD --direct   # 單次打包（CI 預設走這條，便宜、有界）
     doc-align sync                                     # 偵測 → 裁決 → 更新 → 推進 manifest → 自動 render
-    doc-align init                                     # 從零 bootstrap 文件集＋handbook（會問你裁決；--yes 全自動）
+    doc-align init                                     # 從零 bootstrap 文件集＋handbook（預設 lean：圖優先、少文字；--style rich 放寬）
     doc-align init --ci                                # 初始化並順便接 CI
 
 CLI 的 agent 模式怎麼運作：把對應的 playbook 當 system prompt，模型透過**受限工具**自行執行——
@@ -147,7 +147,7 @@ doc-align 本體是 markdown playbook＋Node scripts，任何能讀檔、跑 she
 
 | 命令 | 做什麼 |
 |---|---|
-| `doc-align init [--repair] [--ci]` | 探索 repo → 決定文件集 → 寫文件＋manifest → 自檢 → **自動生成 `docs/handbook.html`**。`--repair`＝只重建損壞的 manifest；`--ci`＝順便偵測 GitHub／GitLab remotes 裝 CI 範本並列出待設的 secrets／variables |
+| `doc-align init [--repair] [--ci] [--style lean\|rich]` | 探索 repo → 決定文件集 → 寫文件＋manifest → 自檢 → **自動生成 `docs/handbook.html`**。`--repair`＝只重建損壞的 manifest；`--ci`＝順便偵測 GitHub／GitLab remotes 裝 CI 範本並列出待設的 secrets／variables；`--style`＝文件密度，預設 `lean`（圖優先，文字只寫圖說不了的條件／邊界／例外，段落有行數與條數上限），`rich` 放寬 |
 | `doc-align sync [--dry-run] [--range <git range> \| --full]` | 偵測 drift → 請你裁決（文件過時 vs 程式碼可疑）→ 更新文件 → 推進 manifest → **自動 render**。`--dry-run`＝只輸出 drift 報告、不寫任何檔案（CI 用這個）；不帶 range＝增量（各文件自 `last_verified` 起算）；`--range origin/main...HEAD`＝PR 範圍；`--full`＝全量重驗 |
 
 `--no-render` 可關掉結尾的自動 render。

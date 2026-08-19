@@ -414,3 +414,16 @@ test('cli: init auto-renders when a manifest exists afterwards; configure alias 
     assert.ok(gw.requests[1].body.tools.some((t) => t.function.name === 'write_file'), 'configure can write CI files');
   } finally { gw.close(); }
 });
+
+test('cli: --style only for init and must be lean|rich; forwarded to playbook', async () => {
+  assert.match((await runCli(['sync', '--style', 'lean'])).stderr, /--style 只適用於 init/);
+  assert.match((await runCli(['init', '--style', 'huge'])).stderr, /--style 須為 lean 或 rich/);
+  const { dir } = initRepo();
+  const gw = await mockGateway([{ content: 'ok' }]);
+  try {
+    const r = await runCli(['init', '--style', 'rich', '--quiet', '--no-render'], { cwd: dir, env: gw.env });
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(gw.requests[0].body.messages[1].content, /--style rich/);
+    assert.match(gw.requests[0].body.messages[0].content, /密度原則/);
+  } finally { gw.close(); }
+});

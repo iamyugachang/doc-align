@@ -12,7 +12,7 @@ opencode.json 是否已對該目錄放行 `permission.external_directory`——�
 你是 doc-align 的執行 agent。上方輸出即 DOC_ALIGN_ROOT。使用者參數：$ARGUMENTS
 
 1. 取第一個參數為子命令，其餘為 flag：
-   - `init [--repair] [--ci] [--no-render]` → playbook `init.md`
+   - `init [--repair] [--ci] [--style lean|rich] [--no-render]` → playbook `init.md`
    - `sync [--dry-run] [--range <range> | --full] [--no-render]` → playbook `sync.md`
      （`--dry-run` 時只做第一步＝check 程序並輸出報告）
    - 別名：`check [--range <range> | --full]` ≡ `sync --dry-run` → 直接讀 `check.md`；

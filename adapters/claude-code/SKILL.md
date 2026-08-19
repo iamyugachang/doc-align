@@ -30,7 +30,7 @@ description: 讓 docs/ 文件集（Mermaid 圖＋結構化敘事）與程式碼�
 ## 執行
 
 1. 解析使用者參數。第一個字是子命令，其餘為 flag：
-   - `init [--repair] [--ci] [--no-render]` → playbook `init.md`
+   - `init [--repair] [--ci] [--style lean|rich] [--no-render]` → playbook `init.md`
    - `sync [--dry-run] [--range <range> | --full] [--no-render]` → playbook `sync.md`
      （`--dry-run` 時 sync 只做第一步＝check 程序並輸出報告）
    - 別名：`check [--range <range> | --full]` ≡ `sync --dry-run …` → 直接讀 `check.md`；
