@@ -7,7 +7,7 @@
 
 ## 結構
 
-- `playbook/` — 核心流程指令（agent 無關的 markdown；init／sync，以及 check＝sync 的偵測段、render、configure）；`writing.md`＝寫作心法（arc42／C4／Diátaxis／ADR／Google style 蒸餾版，init／sync 寫文件時遵守）；`optional-skills.md`＝可選外部 skill 的偵測與使用規則（不 vendor）
+- `playbook/` — 核心流程指令（agent 無關的 markdown；init／sync，以及 check＝sync 的偵測段、render、configure）；`writing.md`＝寫作心法（arc42／C4／Diátaxis／ADR／Google style 蒸餾版）、`diagrams.md`＝圖的設計規範（diagram-design 的哲學／選型／複雜度預算／語意角色／反模式換算成 Mermaid），init／sync 寫文件時都必須遵守；`optional-skills.md`＝可選外部 skill 的偵測與使用規則（不 vendor）
 - `scripts/` — deterministic Node.js scripts（零依賴）
 - `bin/doc-align.js` — 獨立 CLI：內建最小 agent loop（tool calling）直打 OpenAI-compatible API，不需任何外部 agent
 - `adapters/claude-code/` — Claude Code skill 薄殼
@@ -31,7 +31,7 @@ doc-align 零依賴就能跑完整流程；下面這些第三方 skill **裝了�
 
 | skill | 裝了強化什麼 | 安裝（Claude Code／oh-my-pi 讀 `~/.claude/skills`；opencode／Hermes 讀 `~/.hermes/skills` 或各自設定） |
 |---|---|---|
-| **diagram-design**（MIT） | 之後的 `present`：把 Mermaid 重畫成品牌風 SVG 給簡報；`mermaid_extract.py` 算節點預算、提醒拆圖 | `git clone https://github.com/cathrynlavery/diagram-design ~/.claude/skills/diagram-design` |
+| **diagram-design**（MIT） | 它的設計判準已是**必要規範**（`playbook/diagrams.md`，不用裝）；裝了才多的是之後 `present` 把 Mermaid 重畫成品牌風 SVG 給簡報 | `git clone https://github.com/cathrynlavery/diagram-design ~/.claude/skills/diagram-design` |
 | **developer-docs-framework** | init 寫句子時多一層 style 規則（Diátaxis＋27 條規則＋Google／Good Docs 等 6 套 style guide） | `git clone https://github.com/anivar/developer-docs-framework ~/.claude/skills/developer-docs-framework` |
 | **documentation-and-adrs**（addy-agent-skills） | 設計決策要升級成獨立 ADR 檔時的模板與既有慣例偵測 | Claude Code：`/plugin` 市集 `addy-agent-skills` → `documentation-and-adrs` |
 | **arc42-toolkit** | repo 被要求交完整 arc42（12 節）時的補充產物，不取代 docs/ | `git clone https://github.com/MSiccDev/arc42-toolkit ~/.claude/skills/arc42-toolkit` |
@@ -281,7 +281,7 @@ job（這是 lint，不是 drift 報告）。
 
 | script | 用途 | 用法 |
 |---|---|---|
-| `mermaid-check.js` | Mermaid 區塊啟發式 lint（括號平衡、未閉合字串、CJK 混寬括號） | `node scripts/mermaid-check.js <file.md>...`；有錯 exit 1 |
+| `mermaid-check.js` | Mermaid 區塊啟發式 lint（括號平衡、未閉合字串、CJK 混寬括號）＋**複雜度預算**（節點／邊／生命線／狀態數，超過出 warning；取自 diagram-design） | `node scripts/mermaid-check.js [--strict-budget] <file.md>...`；語法錯 exit 1，預算只警告（`--strict-budget` 才 fail） |
 | `schema-diff.js` | erDiagram 對 SQL migrations 的表／欄位差異 | `node scripts/schema-diff.js --doc docs/db-schema.md --sql <file-or-dir>` |
 | `deps-check.js` | layers 文件的分層依賴機械驗證：掃 Python／JS/TS import 圖，對照層級表＋flowchart 允許邊，列反向依賴 | `node scripts/deps-check.js --doc docs/layers.md [--py-root <dir>]` |
 | `changed-scope.js` | 依 manifest watch 算出受影響文件（增量／`--range`／`--full`） | `node scripts/changed-scope.js [--range <git range>] [--full]` |

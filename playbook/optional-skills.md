@@ -14,7 +14,7 @@ playbook 提到「若有 <skill>」的步驟一律遵守：
 
 | skill | 強化哪一步 | 來源 |
 |---|---|---|
-| diagram-design | （規劃中的 `present`）把 Mermaid 重畫成品牌風 SVG 給簡報；以及 `mermaid_extract.py` 算節點預算提醒拆圖 | https://github.com/cathrynlavery/diagram-design（MIT） |
+| diagram-design | 其**設計判準已蒸餾成必要規範** `playbook/diagrams.md`（不需安裝）；安裝後才有的是（規劃中的 `present`）把 Mermaid 重畫成品牌風 SVG 給簡報 | https://github.com/cathrynlavery/diagram-design（MIT） |
 | developer-docs-framework | init 步驟 5 寫句子時的額外 style 規則（Diátaxis＋27 條規則＋6 套 style guide） | https://github.com/anivar/developer-docs-framework |
 | documentation-and-adrs（addy-agent-skills） | 設計決策段要升級成獨立 ADR 檔時的模板與慣例偵測 | addy-agent-skills marketplace |
 | arc42-toolkit／clarc arc42-c4 | repo 要求完整 arc42 文件（12 節）時，作為 doc-align 文件集之外的補充產物；不取代 docs/ | https://github.com/MSiccDev/arc42-toolkit ／ https://github.com/marvinrichter/clarc |

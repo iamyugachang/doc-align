@@ -25,7 +25,8 @@ Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `doc
    對每條標示更新文件，或標記為「程式碼問題」（文件不動，留待修碼）。無法與使用者
    互動的環境（例如 CI）視為非互動情境：此時不直接寫入文件，改為輸出所有建議的
    修改內容（diff 形式）讓人事後套用。
-3. **更新文件**：遵守 `<SCRIPTS>/../playbook/writing.md` 的寫作心法與 init playbook
+3. **更新文件**：遵守 `<SCRIPTS>/../playbook/writing.md` 的寫作心法、`diagrams.md` 的
+   圖設計規範（改圖時順手過 remove test；mermaid-check 的預算 warning 視為拆圖訊號）與 init playbook
    步驟 5 的寫作規則與**密度原則**（圖優先、不重述圖、只寫圖說不了的關鍵；維持該
    文件既有的密度，不因更新而膨脹）；順手修正被改到的段落中違反 writing.md 的句子
    （無標籤箭頭、重述圖的段落、模糊詞），但不重寫沒被 drift 觸及的段落。把修改後的

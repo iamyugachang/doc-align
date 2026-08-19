@@ -79,3 +79,10 @@ test('writing.md exists, is referenced by init and sync, and carries the core he
   assert.ok(o.includes('不複製進本 repo') && o.includes('DOC_ALIGN_SKILLS_DIR'));
   assert.ok(!existsSync(ROOT + 'vendor'), 'no vendored third-party skills');
 });
+
+test('diagrams.md is a required playbook: referenced by init/sync and carries budget + remove test', () => {
+  const d = readFileSync(ROOT + 'playbook/diagrams.md', 'utf8');
+  for (const k of ['刪到不能再刪', '複雜度預算', 'remove test', 'classDef focal', 'erDiagram', '反模式']) assert.ok(d.includes(k), `diagrams.md mentions ${k}`);
+  assert.ok(readFileSync(ROOT + 'playbook/init.md', 'utf8').includes('playbook/diagrams.md'));
+  assert.ok(readFileSync(ROOT + 'playbook/sync.md', 'utf8').includes('diagrams.md'));
+});

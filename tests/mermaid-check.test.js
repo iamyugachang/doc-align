@@ -74,3 +74,47 @@ test('CLI exits 1 when a file contains an invalid block', () => {
   execFileSync('node', [SCRIPT, good]); // exit 0
   assert.throws(() => execFileSync('node', [SCRIPT, bad]));
 });
+
+// ── complexity budget（diagram-design 換算）──────────────────────────────────
+
+test('checkBudget counts flowchart nodes/edges/subgraphs and warns over budget; ER is exempt', async () => {
+  const { checkBudget } = await import('../scripts/mermaid-check.js');
+  const small = 'flowchart TD\n  a[A] --> b[B]\n  b -->|x| c\n  subgraph s\n    c --> d\n  end\n';
+  const r = checkBudget(small);
+  assert.equal(r.kind, 'flowchart');
+  assert.deepEqual(r.stats, { nodes: 4, edges: 3, subgraphs: 1 });
+  assert.deepEqual(r.warnings, []);
+  const big = 'flowchart LR\n' + Array.from({ length: 14 }, (_, i) => `  n${i} --> n${i + 1}`).join('\n');
+  const rb = checkBudget(big);
+  assert.equal(rb.stats.nodes, 15);
+  assert.ok(rb.warnings.some((w) => /nodes=15 exceeds budget 12/.test(w)));
+  assert.deepEqual(checkBudget('erDiagram\n' + Array.from({ length: 20 }, (_, i) => `  T${i} ||--o{ T${i + 1} : r`).join('\n')).warnings, []);
+});
+
+test('checkBudget: sequence lifelines/alt/nesting, state states/transitions, class classes/relations', async () => {
+  const { checkBudget } = await import('../scripts/mermaid-check.js');
+  const seq = 'sequenceDiagram\n  participant A\n  A->>B: x\n  B-->>C: y\n  alt ok\n    C->>D: z\n  else bad\n    loop retry\n      D->>E: w\n    end\n  end\n  E->>F: q\n';
+  const rs = checkBudget(seq);
+  assert.equal(rs.kind, 'sequence');
+  assert.equal(rs.stats.lifelines, 6);
+  assert.equal(rs.stats.alt, 2);
+  assert.equal(rs.stats.nesting, 1);
+  assert.ok(rs.warnings.some((w) => /lifelines=6 exceeds budget 5/.test(w)));
+  const st = 'stateDiagram-v2\n  [*] --> Idle\n  Idle --> Running : start\n  Running --> Done\n  Done --> [*]\n';
+  assert.deepEqual(checkBudget(st).stats, { states: 3, transitions: 4 });
+  const cl = 'classDiagram\n  class A {\n    +int x\n  }\n  class B\n  A <|-- B\n  B --> C : uses\n';
+  const rc = checkBudget(cl);
+  assert.equal(rc.stats.classes, 3);
+  assert.equal(rc.stats.relations, 2);
+  assert.equal(checkBudget('gantt\n  title x\n').kind, null);
+});
+
+test('CLI: warnings do not fail unless --strict-budget; JSON carries kind/stats', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'docalign-budget-'));
+  const f = join(dir, 'big.md');
+  writeFileSync(f, '# big\n\n```mermaid\nflowchart LR\n' + Array.from({ length: 14 }, (_, i) => `  n${i} --> n${i + 1}`).join('\n') + '\n```\n');
+  const out = JSON.parse(execFileSync('node', [SCRIPT, f], { encoding: 'utf8' }));
+  assert.equal(out.results[0].kind, 'flowchart');
+  assert.ok(out.results[0].warnings.length > 0);
+  assert.throws(() => execFileSync('node', [SCRIPT, '--strict-budget', f], { stdio: 'pipe' }));
+});

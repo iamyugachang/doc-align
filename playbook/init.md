@@ -81,7 +81,9 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
    的錯誤記入報告。
 5. **撰寫文件**，先讀 `<DOC_ALIGN_ROOT>/playbook/writing.md`（寫作心法：讀者優先、
    C4 的圖層級與 box／箭頭標註、不混象限、規則句寫法、迷你 ADR、句子規範、發布前
-   checklist；`<DOC_ALIGN_ROOT>` 未提供時為 `<SCRIPTS>` 的上一層），全程遵守；
+   checklist）與 `<DOC_ALIGN_ROOT>/playbook/diagrams.md`（圖的設計規範：刪到不能再刪、
+   選型表、複雜度預算、語意角色的 Mermaid 寫法、語意模式片語、反模式、remove test；
+   `<DOC_ALIGN_ROOT>` 未提供時為 `<SCRIPTS>` 的上一層），全程遵守；
    再遵守以下寫作規則（來自實測教訓，違反任一條都算未完成）：
    - 每份文件依類型使用第 4 節定義的段落骨架：flows 用完整五段（目的與情境／
      圖／行為規則／設計決策／實作細節）；architecture 用 目的與情境／圖／
@@ -138,7 +140,9 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
      為 null、跨表一致性等可驗證規則）寫進行為規則。同一事實只在其中一處宣告，
      不得兩段重複。
 6. **驗證後寫入**：每份文件寫入前先在暫存位置通過
-   `node <SCRIPTS>/mermaid-check.js <暫存檔>`；db-schema 文件另須
+   `node <SCRIPTS>/mermaid-check.js <暫存檔>`（`errors` 必須為空；`warnings` 是複雜度
+   預算提醒——看到就依 diagrams.md §3 先考慮拆總覽＋細部，確實不該拆的在文件內一句
+   說明理由）；db-schema 文件另須
    `node <SCRIPTS>/schema-diff.js --doc <暫存檔> --sql <DDL 路徑>` 回報 `ok`
    （`unsupported` 時修文件或在報告說明原因，不得默默留下 drift；回報 `drift` 時
    代表文件剛寫就錯——以程式碼為準修文件，重驗直到 `ok`）；layers 文件另須
@@ -155,8 +159,8 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
      deployment 的 watch 指向部署定義檔；permissions／api 的 watch 指向 RBAC
      定義／router 所在。
    - `--repair` 模式：從既有文件內容推導 type 與 watch。
-8. **自檢**：先用 writing.md 第 7 節的 checklist 逐份過一遍（讀者視角、圖的層級與
-   標註、重述、混象限、術語），再依 check playbook 以全量模式驗證每份剛完成的文件；發現自己寫錯的
+8. **自檢**：先用 writing.md 第 7 節與 diagrams.md 第 7 節的 checklist 逐份過一遍
+   （讀者視角、圖的層級與標註、remove test、預算、重述、混象限、術語），再依 check playbook 以全量模式驗證每份剛完成的文件；發現自己寫錯的
    立即修正並重驗。全量自檢通過的文件逐一執行
    `node <SCRIPTS>/manifest.js set-verified --doc <path> --commit <目前 HEAD>`
    標記為已驗證。完整初始化模式下自檢不通過不得結束；`--repair` 模式不得重寫
