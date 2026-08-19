@@ -22,6 +22,23 @@
 | **獨立 CLI**（`doc-align sync --dry-run`） | 不想開 agent、或公司電腦只有內部 gateway | 內建 agent loop 直打 OpenAI-compatible endpoint |
 | **CI**（GitHub Actions／GitLab CI） | PR／MR 自動留言 | 同 CLI（direct 或 agent runner），或 opencode／claude／自帶 harness |
 
+## 可選加分 skill（建議在你的 agent 裡裝，repo 不內含）
+
+doc-align 零依賴就能跑完整流程；下面這些第三方 skill **裝了會更好、沒裝照常**——playbook 會偵測
+（`$DOC_ALIGN_SKILLS_DIR` → `~/.claude/skills` → `~/.hermes/skills` → 專案 `.claude/skills`），找到才用，
+找不到只在報告末尾提醒一行。我們刻意不把它們複製進 repo（授權／過時／綁 harness／兩套真相，見
+`playbook/optional-skills.md`）。
+
+| skill | 裝了強化什麼 | 安裝（Claude Code／oh-my-pi 讀 `~/.claude/skills`；opencode／Hermes 讀 `~/.hermes/skills` 或各自設定） |
+|---|---|---|
+| **diagram-design**（MIT） | 之後的 `present`：把 Mermaid 重畫成品牌風 SVG 給簡報；`mermaid_extract.py` 算節點預算、提醒拆圖 | `git clone https://github.com/cathrynlavery/diagram-design ~/.claude/skills/diagram-design` |
+| **developer-docs-framework** | init 寫句子時多一層 style 規則（Diátaxis＋27 條規則＋Google／Good Docs 等 6 套 style guide） | `git clone https://github.com/anivar/developer-docs-framework ~/.claude/skills/developer-docs-framework` |
+| **documentation-and-adrs**（addy-agent-skills） | 設計決策要升級成獨立 ADR 檔時的模板與既有慣例偵測 | Claude Code：`/plugin` 市集 `addy-agent-skills` → `documentation-and-adrs` |
+| **arc42-toolkit** | repo 被要求交完整 arc42（12 節）時的補充產物，不取代 docs/ | `git clone https://github.com/MSiccDev/arc42-toolkit ~/.claude/skills/arc42-toolkit` |
+
+安裝指令以各 repo README 為準（有些 skill 需要額外 Python 依賴）。寫作心法本身（arc42／C4／Diátaxis／
+ADR／Google style）已蒸餾在 `playbook/writing.md`，**不裝任何 skill 也會生效**。
+
 ## 安裝（獨立 CLI）
 
     git clone https://github.com/iamyugachang/doc-align && cd doc-align
