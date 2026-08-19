@@ -1,7 +1,15 @@
-# doc-align sync — 套用文件更新程序
+# doc-align sync — 偵測並套用文件更新程序
 
-你是執行 doc-align sync 的 agent。目標：把 check 找到的 drift 落實為文件更新，
-並推進 manifest 的對齊狀態。`<SCRIPTS>` 由呼叫端提供。
+你是執行 doc-align sync 的 agent。目標：偵測 docs/ 與程式碼的 drift，把裁決後的
+drift 落實為文件更新，推進 manifest 的對齊狀態，最後重新生成 handbook。
+`<SCRIPTS>` 由呼叫端提供。
+
+參數：
+- `--dry-run`：只做步驟 1 的 drift 偵測並輸出報告，**不寫任何檔案、不推進 manifest、
+  不 render**；CI 與「先看看」都用這個。`doc-align check` 是它的別名。
+- `--range <git range>`／`--full`：原樣傳給步驟 1 的 check 程序（分別為指定比對範圍與
+  全量重驗；兩者同時出現以 `--full` 為準）。
+- `--no-render`：略過步驟 7 的 handbook 生成。
 
 Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `docs/` 的路徑
 （如 `flows/refund.md` 實際檔案是 `docs/flows/refund.md`）；所有檔案操作與 script
@@ -9,9 +17,10 @@ Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `doc
 
 ## 步驟
 
-1. **取得 drift 清單**：若本次對話已有 check 結果就直接使用，但須先確認該結果
-   對應的 commit 就是目前的 HEAD；不一致時須重新執行完整 check 程序
-   （見 check playbook）。無 drift 時跳到步驟 5（只推進 last_verified）。
+1. **取得 drift 清單**：執行完整 check 程序（見 check playbook，帶入 `--range`／
+   `--full`）；若本次對話已有 check 結果且對應的 commit 就是目前的 HEAD，可直接
+   沿用。**`--dry-run` 在此結束**：輸出 check 報告本體即為最終結果，後續步驟一律
+   不做。無 drift 時跳到步驟 5（只推進 last_verified）。
 2. **裁決**：把所有 drift 彙整成一份清單，一次性請使用者裁決（不逐條個別提問）：
    對每條標示更新文件，或標記為「程式碼問題」（文件不動，留待修碼）。無法與使用者
    互動的環境（例如 CI）視為非互動情境：此時不直接寫入文件，改為輸出所有建議的
@@ -31,3 +40,7 @@ Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `doc
    仍有未裁決 drift 的文件**不得**推進。
 6. **總結**：列出更新了哪些文件、哪些 drift 被標記為程式碼問題（附程式碼位置，
    提醒使用者處理）、哪些文件推進了 last_verified。
+7. **重新生成 handbook**（除非 `--no-render`）：執行
+   `node <SCRIPTS>/render-handbook.js`（輸出 `docs/handbook.html`），把輸出路徑與
+   section 數附在總結末尾；`skipped` 非空時一併列出。這是零 LLM 的機械步驟，
+   目的是讓 HTML 永遠跟文件同步，不需要使用者另外記得跑 render。

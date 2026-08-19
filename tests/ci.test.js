@@ -205,11 +205,11 @@ test('gitlab + direct templates: DOC_ALIGN_LLM_RUNNER=agent runs bin/doc-align.j
   const agentIf = gl.indexOf('= "agent" ]; then');
   assert.ok(agentIf > -1, 'gitlab has agent branch');
   assert.ok(agentIf > gl.indexOf('= "direct" ]; then') && agentIf < gl.indexOf('= "opencode" ]; then'), 'agent block sits between direct and opencode');
-  assert.match(gl.slice(agentIf, agentIf + 300), /bin\/doc-align\.js" check --range "\$RANGE" --yes --quiet --out report\.md/);
+  assert.match(gl.slice(agentIf, agentIf + 300), /bin\/doc-align\.js" sync --dry-run --range "\$RANGE" --yes --quiet --out report\.md/);
   assert.match(gl, /DOC_ALIGN_LLM_RUNNER\s+— 選配：direct（預設）／agent／opencode／custom/);
 
   const gh = readFileSync(`${ROOT}ci/doc-align-direct.yml`, 'utf8');
   assert.match(gh, /DOC_ALIGN_LLM_RUNNER: \$\{\{ vars\.DOC_ALIGN_LLM_RUNNER \}\}/, 'runner reaches the shell via env:');
-  assert.match(gh, /if \[ "\$DOC_ALIGN_LLM_RUNNER" = "agent" \]; then\n\s+node "\$RUNNER_TEMP\/doc-align\/bin\/doc-align\.js" check --range "\$RANGE" --yes --quiet --out "\$RUNNER_TEMP\/report\.md"/);
+  assert.match(gh, /if \[ "\$DOC_ALIGN_LLM_RUNNER" = "agent" \]; then\n\s+node "\$RUNNER_TEMP\/doc-align\/bin\/doc-align\.js" sync --dry-run --range "\$RANGE" --yes --quiet --out "\$RUNNER_TEMP\/report\.md"/);
   assert.match(gh, /else\n\s+node "\$RUNNER_TEMP\/doc-align\/scripts\/llm-check\.js"/, 'direct stays the default');
 });

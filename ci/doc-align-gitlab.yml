@@ -82,7 +82,7 @@ doc-align:
     # ── Drift check：agent（DOC_ALIGN_LLM_RUNNER=agent 時，內建 tool loop，無外部 agent）──
     - |
       if [ "${DOC_ALIGN_LLM_RUNNER:-direct}" = "agent" ]; then
-        node "$DOC_ALIGN_DIR/bin/doc-align.js" check --range "$RANGE" --yes --quiet --out report.md
+        node "$DOC_ALIGN_DIR/bin/doc-align.js" sync --dry-run --range "$RANGE" --yes --quiet --out report.md
       fi
     # ── Drift check：opencode（DOC_ALIGN_LLM_RUNNER=opencode 時）──
     - |

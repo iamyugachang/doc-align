@@ -69,7 +69,7 @@ jobs:
           RANGE: ${{ steps.gate.outputs.range }}
         run: |
           if [ "$DOC_ALIGN_LLM_RUNNER" = "agent" ]; then
-            node "$RUNNER_TEMP/doc-align/bin/doc-align.js" check --range "$RANGE" --yes --quiet --out "$RUNNER_TEMP/report.md"
+            node "$RUNNER_TEMP/doc-align/bin/doc-align.js" sync --dry-run --range "$RANGE" --yes --quiet --out "$RUNNER_TEMP/report.md"
           else
             node "$RUNNER_TEMP/doc-align/scripts/llm-check.js" --range "$RANGE" --out "$RUNNER_TEMP/report.md"
           fi

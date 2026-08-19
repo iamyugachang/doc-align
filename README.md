@@ -7,7 +7,7 @@
 
 ## 結構
 
-- `playbook/` — 核心流程指令（agent 無關的 markdown；check／sync／init／render／configure）
+- `playbook/` — 核心流程指令（agent 無關的 markdown；init／sync，以及 check＝sync 的偵測段、render、configure）
 - `scripts/` — deterministic Node.js scripts（零依賴）
 - `bin/doc-align.js` — 獨立 CLI：內建最小 agent loop（tool calling）直打 OpenAI-compatible API，不需任何外部 agent
 - `adapters/claude-code/` — Claude Code skill 薄殼
@@ -19,7 +19,7 @@
 | 方式 | 適合 | LLM 從哪來 |
 |---|---|---|
 | **當 skill 用**（Claude Code／opencode／oh-my-pi…） | 平常就開著 agent 的人 | 該 agent 自己的 |
-| **獨立 CLI**（`doc-align check`） | 不想開 agent、或公司電腦只有內部 gateway | 內建 agent loop 直打 OpenAI-compatible endpoint |
+| **獨立 CLI**（`doc-align sync --dry-run`） | 不想開 agent、或公司電腦只有內部 gateway | 內建 agent loop 直打 OpenAI-compatible endpoint |
 | **CI**（GitHub Actions／GitLab CI） | PR／MR 自動留言 | 同 CLI（direct 或 agent runner），或 opencode／claude／自帶 harness |
 
 ## 安裝（獨立 CLI）
@@ -58,29 +58,29 @@ CI 用同一組名字：GitLab 放 CI/CD Variables（KEY 勾 Masked）；GitHub 
 
 設好後 `cd` 到目標 repo，依序驗證：
 
-    doc-align render                       # 零 LLM，先確認 CLI 本身通
-    doc-align check --range HEAD~3...HEAD --verbose   # 走 agent 模式，確認 gateway 的 tool calling 通
-    doc-align check                        # 增量 drift 偵測（各文件自 last_verified 起算）
-    doc-align check --range origin/main...HEAD
-    doc-align check --range origin/main...HEAD --direct   # 單次打包（CI 預設走這條，便宜、有界）
-    doc-align init                         # 從零 bootstrap 文件集（會問你裁決；--yes 全自動）
-    doc-align sync                         # 套用 check 的建議並推進 manifest
-    doc-align configure                    # 安裝 CI 範本
+    doc-align render                                   # 零 LLM，先確認 CLI 本身通
+    doc-align sync --dry-run --range HEAD~3...HEAD --verbose   # agent 模式，確認 gateway 的 tool calling 通
+    doc-align sync --dry-run                           # 增量 drift 報告（不寫檔）
+    doc-align sync --dry-run --range origin/main...HEAD --direct   # 單次打包（CI 預設走這條，便宜、有界）
+    doc-align sync                                     # 偵測 → 裁決 → 更新 → 推進 manifest → 自動 render
+    doc-align init                                     # 從零 bootstrap 文件集＋handbook（會問你裁決；--yes 全自動）
+    doc-align init --ci                                # 初始化並順便接 CI
 
 CLI 的 agent 模式怎麼運作：把對應的 playbook 當 system prompt，模型透過**受限工具**自行執行——
 `read_file`／`list_dir`／`glob`／`grep`／`git`（唯讀子命令）／`run_script`（只能跑 doc-align 自家
-scripts）／`ask_user`；`init`／`sync`／`configure` 額外開 `write_file`／`move_file`（只能寫 repo 內或系統
-暫存目錄），`check` 完全唯讀。任意 shell 預設關閉，需要 codegraph 之類外部工具時加 `--allow-shell`。
+scripts）／`ask_user`；`init`／`sync` 額外開 `write_file`／`move_file`（只能寫 repo 內或系統
+暫存目錄），`sync --dry-run` 完全唯讀。init／sync 結束後 CLI 會再機械跑一次 render（冪等），
+確保 `docs/handbook.html` 永遠跟文件同步。任意 shell 預設關閉，需要 codegraph 之類外部工具時加 `--allow-shell`。
 進度印到 stderr（`--verbose` 含工具輸出預覽、`--quiet` 靜音），最終報告印到 stdout 或 `--out <path>`。
 其他選項：`-C <dir>`、`--model`、`--max-turns`（預設 60；超過 exit 2）、`--yes`（非互動：ask_user
 一律回「非互動」，agent 依 playbook 的非互動情境處理）。gateway 必須支援 OpenAI tool calling；不支援時
-（通常是 `tools` 欄位被回 HTTP 4xx）改用 `check --direct`（純文字單次呼叫）。
+（通常是 `tools` 欄位被回 HTTP 4xx）改用 `sync --dry-run --direct`（純文字單次呼叫）。
 
 ## 安裝（Claude Code）
 
     ln -sfn "$(pwd)/adapters/claude-code" ~/.claude/skills/doc-align
 
-之後在任一 repo 內使用 `/doc-align check|sync|init`。
+之後在任一 repo 內使用 `/doc-align init` 與 `/doc-align sync [--dry-run]`。
 
 ## 安裝（opencode）
 
@@ -98,8 +98,8 @@ scripts）／`ask_user`；`init`／`sync`／`configure` 額外開 `write_file`�
       }
     }
 
-之後在 opencode 內使用 `/doc-align check|sync|init|render|configure`；非互動：
-`opencode run --command doc-align "check --range origin/main...HEAD"`（參數整段加引號，
+之後在 opencode 內使用 `/doc-align init` 與 `/doc-align sync [--dry-run]`；非互動：
+`opencode run --command doc-align "sync --dry-run --range origin/main...HEAD"`（參數整段加引號，
 否則 `--range` 會被 opencode 自己吃掉）。已在真機驗證（1.18.x，`render` 全程跑通）；
 `opencode run` 偶爾會在讀完 playbook 後停住，`opencode run --continue "繼續"` 即可接續。
 
@@ -139,18 +139,20 @@ doc-align 本體是 markdown playbook＋Node scripts，任何能讀檔、跑 she
 **公司電腦 checklist**：(1) Node ≥ 18＋git；(2) 能 clone doc-align——內網連不到 GitHub
 就先建內部鏡像（CI 的 `DOC_ALIGN_REPO_URL` 同一個）；(3) 上面對應 agent 的 symlink／
 `DOC_ALIGN_ROOT`；(4) agent 的專案外讀取權限放行；(5) LLM 走內部 gateway 的 provider
-設定；(6) 在目標 repo 跑一次 `/doc-align render`（零 LLM）確認整條路通，再跑 `check`。
+設定；(6) 在目標 repo 跑一次 `/doc-align render`（零 LLM）確認整條路通，再跑 `sync --dry-run`。
 
 ## 用法
 
-- `/doc-align check` — 增量 drift 偵測（各文件自 `last_verified` 起算）
-- `/doc-align check --full` — 全量重驗
-- `/doc-align check --range origin/main...HEAD` — 指定範圍（PR 情境）
-- `/doc-align sync` — 套用文件更新並推進 manifest
-- `/doc-align init` — 從零 bootstrap 文件集與 manifest
-- `/doc-align init --repair` — manifest 損壞時重建
-- `/doc-align render [--out <path>]` — 把文件集渲染成單頁 HTML handbook（預設 `docs/handbook.html`：側欄導覽、Mermaid 圖 CDN 渲染、深淺色主題；零 LLM 成本）。想把個別圖重畫成簡報用的品牌風 HTML/PNG，見 `playbook/render.md` 末尾「可選：精緻版單圖」——走外部 skill diagram-design，手動、逐張、非 doc-align 依賴
-- `/doc-align configure` — 初次接入：偵測 repo 的 GitHub／GitLab remotes，安裝對應 CI 範本並列出待設定的 secrets/variables 清單
+兩個主命令（skill 模式前面加 `/`，CLI 模式直接打）：
+
+| 命令 | 做什麼 |
+|---|---|
+| `doc-align init [--repair] [--ci]` | 探索 repo → 決定文件集 → 寫文件＋manifest → 自檢 → **自動生成 `docs/handbook.html`**。`--repair`＝只重建損壞的 manifest；`--ci`＝順便偵測 GitHub／GitLab remotes 裝 CI 範本並列出待設的 secrets／variables |
+| `doc-align sync [--dry-run] [--range <git range> \| --full]` | 偵測 drift → 請你裁決（文件過時 vs 程式碼可疑）→ 更新文件 → 推進 manifest → **自動 render**。`--dry-run`＝只輸出 drift 報告、不寫任何檔案（CI 用這個）；不帶 range＝增量（各文件自 `last_verified` 起算）；`--range origin/main...HEAD`＝PR 範圍；`--full`＝全量重驗 |
+
+`--no-render` 可關掉結尾的自動 render。
+
+別名（進階、舊名，仍可用）：`check` ≡ `sync --dry-run`；`render [--out <path>]` 只重生 handbook（零 LLM；側欄導覽、Mermaid CDN 渲染、深淺色主題）；`configure` ≡ `init --ci` 的 CI 接線段（事後補接用）。想把個別圖重畫成簡報用的品牌風 HTML/PNG，見 `playbook/render.md` 末尾「可選：精緻版單圖」（外部 skill diagram-design，手動、逐張）。
 
 ## 文件類型（13 種）
 
@@ -268,7 +270,7 @@ job（這是 lint，不是 drift 報告）。
 | `changed-scope.js` | 依 manifest watch 算出受影響文件（增量／`--range`／`--full`） | `node scripts/changed-scope.js [--range <git range>] [--full]` |
 | `ci-gate.js` | PR 廉價閘門：`skip`、`affectedDocs`、`changedDocs`（docs 內變動的 .md） | `node scripts/ci-gate.js --base <ref>`（或 `--range`） |
 | `llm-check.js` | direct 模式 drift check：打包文件＋diff＋證據片段直打 OpenAI-compatible API | `node scripts/llm-check.js --range <git range> [--out <path>]`；env `DOC_ALIGN_LLM_BASE_URL`／`_API_KEY`／`_MODEL`［／`_MAX_CHARS`／`_TIMEOUT_MS`］ |
-| `../bin/doc-align.js` | 獨立 CLI（agent loop；見上方「安裝（獨立 CLI）」） | `node bin/doc-align.js check\|sync\|init\|render\|configure …`；agent 零件在 `scripts/lib/agent-{loop,tools,prompt}.js`，可被自帶 harness 重用 |
+| `../bin/doc-align.js` | 獨立 CLI（agent loop；見上方「安裝（獨立 CLI）」） | `node bin/doc-align.js init\|sync [--dry-run] …`（別名 check／render／configure）；agent 零件在 `scripts/lib/agent-{loop,tools,prompt}.js`，可被自帶 harness 重用 |
 | `manifest.js` | 讀寫 `docs/.docalign.yml` | `read`／`add-doc --doc <p> --type <t> --watch <glob>...`／`set-watch`／`set-verified --doc <p> --commit <sha>` |
 | `render-handbook.js` | 單頁 HTML handbook | `node scripts/render-handbook.js [--out <path>]` |
 | `generate-doc-set.js` | 依 JSON spec 一次寫出文件集＋manifest（init 內部使用） | `node scripts/generate-doc-set.js --spec <path\|-> [--docs-dir docs] [--force] [--commit <sha>]` |
@@ -286,7 +288,7 @@ pre-commit 範例（只跑機械層、零 LLM）：
   `npm test` ＋ `npm audit --audit-level=low`，Node 18／20／22）。沒有 npm 套件就沒有 npm CVE 面。
 - **不用 `eval`／`new Function`**；唯一的動態執行點是 (a) CLI 的 `shell` 工具——預設關閉，需
   `--allow-shell` 明確打開；(b) CI 的 `custom` runner——執行的是**你自己**設在 CI Variable 的指令。
-- **agent 模式的工具沙箱**（`scripts/lib/agent-tools.js`）：`check` 完全唯讀；寫檔只在
+- **agent 模式的工具沙箱**（`scripts/lib/agent-tools.js`）：`sync --dry-run`（check）完全唯讀；寫檔只在
   init／sync／configure 開放且限 repo 內或系統暫存目錄（`.git/` 也擋）；`git` 只放行唯讀子命令
   白名單，且再擋 `--output`／`-O`／`--ext-diff`／`--no-index`、`remote add…`、`branch <name>`
   等會寫入或執行外部程式的旗標；`run_script` 只能跑 doc-align 自家 scripts。設計前提是

@@ -3,7 +3,8 @@
 你是執行 doc-align configure 的 agent。目標：把 doc-align 接進目前 repo 的 CI
 （GitHub Actions／GitLab CI，擇一或兩者），並輸出使用者必須手動完成的平台設定
 清單。configure 只安裝 CI 接線，不做文件初始化（那是 init）、不執行 git commit。
-`<DOC_ALIGN_ROOT>` 與 `<SCRIPTS>` 由呼叫端提供。
+`<DOC_ALIGN_ROOT>` 與 `<SCRIPTS>` 由呼叫端提供。`doc-align init --ci` 會在初始化完成後
+自動進入本程序；單獨呼叫 `doc-align configure` 是事後補接 CI 的進階用法。
 
 ## 步驟
 

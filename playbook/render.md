@@ -6,6 +6,9 @@ HTML handbook（側欄導覽、Mermaid 圖、深淺色主題），供人一站�
 
 參數：`--out <path>`＝自訂輸出路徑（預設 `docs/handbook.html`）。
 
+init 與 sync 結束時會自動執行本程序（`--no-render` 可關），使用者通常不需要單獨呼叫；
+單獨呼叫 `doc-align render` 是進階用法（只想重生 HTML、零 LLM）。
+
 ## 步驟
 
 1. **前置檢查**：確認 repo 根存在 `docs/.docalign.yml`；不存在時停止並告知使用者

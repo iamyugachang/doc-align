@@ -1,6 +1,6 @@
 ---
 name: doc-align
-description: 偵測 docs/ 文件（Mermaid 圖＋結構化敘事）與程式碼的 drift 並提出更新建議，亦可渲染單頁 HTML handbook、接入 CI。用法：/doc-align check [--full | --range <git range>]、/doc-align sync、/doc-align init [--repair]、/doc-align render [--out <path>]、/doc-align configure
+description: 讓 docs/ 文件集（Mermaid 圖＋結構化敘事）與程式碼對齊。兩個主命令：/doc-align init [--repair] [--ci]（初始化文件集＋manifest，自動生成 HTML handbook）、/doc-align sync [--dry-run] [--range <git range> | --full]（偵測 drift → 裁決 → 更新文件 → 推進 manifest → 自動 render；--dry-run 只出報告）。別名：check＝sync --dry-run、render＝只重生 handbook、configure＝init --ci 的 CI 接線段
 ---
 
 # doc-align（Claude Code adapter）
@@ -29,12 +29,17 @@ description: 偵測 docs/ 文件（Mermaid 圖＋結構化敘事）與程式碼�
 
 ## 執行
 
-1. 解析使用者參數：第一個字是子命令（`check`、`sync`、`init`、`render` 或 `configure`），其餘
-   （`--full`、`--range <range>`、`--repair`、`--out <path>`）原樣傳入 playbook 流程；
-   `--repair` 僅對 `init` 子命令有效、`--out` 僅對 `render` 子命令有效，出現在其他
-   子命令時視同不認得的參數。無子命令、子命令無法
-   辨識，或出現不認得的參數時，一律視同無法辨識：向使用者說明用法後結束。若同時
-   給了 `--full` 與 `--range`，以 `--full` 為準（全量重驗），並向使用者說明已忽略
-   `--range`。
-2. 讀取對應的 playbook（`check.md`、`sync.md`、`init.md`、`render.md` 或 `configure.md`），完全遵循其步驟執行，
-   以目前所在的 repo 為工作對象。
+1. 解析使用者參數。第一個字是子命令，其餘為 flag：
+   - `init [--repair] [--ci] [--no-render]` → playbook `init.md`
+   - `sync [--dry-run] [--range <range> | --full] [--no-render]` → playbook `sync.md`
+     （`--dry-run` 時 sync 只做第一步＝check 程序並輸出報告）
+   - 別名：`check [--range <range> | --full]` ≡ `sync --dry-run …` → 直接讀 `check.md`；
+     `render [--out <path>]` → `render.md`；`configure` → `configure.md`（≡ `init --ci`
+     的 CI 接線段，不做初始化）。
+   flag 只在上列對應的子命令有效，出現在別處視同不認得。無子命令、子命令無法辨識，
+   或出現不認得的參數時，一律視同無法辨識：向使用者說明用法（主打 init／sync）後
+   結束。若同時給了 `--full` 與 `--range`，以 `--full` 為準（全量重驗），並向使用者
+   說明已忽略 `--range`。
+2. 讀取對應的 playbook，完全遵循其步驟執行，以目前所在的 repo 為工作對象。
+   init／sync（非 dry-run）結束時 playbook 會要求執行 render-handbook.js 重生
+   `docs/handbook.html`——不要省略。

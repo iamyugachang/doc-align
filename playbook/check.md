@@ -1,4 +1,7 @@
-# doc-align check — drift 偵測程序
+# doc-align check — drift 偵測程序（＝ `sync --dry-run`）
+
+本程序是 sync 的第一步；單獨執行時（`doc-align sync --dry-run`，別名 `doc-align check`）
+只輸出報告、不寫任何檔案。
 
 你是執行 doc-align check 的 agent。目標：找出 repo 內 docs/ 文件與程式碼的落差，
 產出 drift 報告。**check 絕不修改任何檔案。**

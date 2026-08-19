@@ -253,11 +253,15 @@ test('system prompt embeds the playbook, maps <SCRIPTS> to run_script and states
 
 test('cli: usage/validation errors exit 1 with usage; --version prints', async () => {
   assert.equal((await runCli([])).code, 1);
-  assert.match((await runCli(['--help'])).stdout, /doc-align check/);
+  assert.match((await runCli(['--help'])).stdout, /doc-align sync \[--dry-run\]/);
   assert.equal((await runCli(['--help'])).code, 0);
   assert.match((await runCli(['bogus'])).stderr, /需要子命令/);
   assert.match((await runCli(['check', '--repair'])).stderr, /--repair 只適用於 init/);
   assert.match((await runCli(['check', '--direct'])).stderr, /--direct 需要 --range/);
+  assert.match((await runCli(['sync', '--direct', '--range', 'a...b'])).stderr, /--direct 只適用於 sync --dry-run/);
+  assert.match((await runCli(['sync', '--ci'])).stderr, /--ci 只適用於 init/);
+  assert.match((await runCli(['init', '--dry-run'])).stderr, /--dry-run 只適用於 sync/);
+  assert.match((await runCli(['--help'])).stdout, /doc-align init \[--repair\] \[--ci\]/);
   assert.match((await runCli(['--version'])).stdout, /^\d+\.\d+\.\d+/);
 });
 
@@ -297,6 +301,7 @@ test('cli: check (agent mode) drives the tool loop end-to-end and prints the fin
     assert.ok(!first.tools.some((t) => t.function.name === 'write_file'), 'check has no write tool');
     assert.match(first.messages[0].content, /## Drift 報告格式/, 'playbook embedded in system prompt');
     assert.match(first.messages[1].content, /doc-align check --range base\.\.\.HEAD/);
+    assert.ok(!existsSync(join(dir, 'docs', 'handbook.html')), 'dry-run never renders');
     // 第二輪：changed-scope 的 JSON 已回填
     const m2 = gw.requests[1].body.messages;
     assert.equal(m2[m2.length - 1].role, 'tool');
@@ -362,5 +367,50 @@ test('cli: missing LLM env in agent mode → clear error, exit 1; --max-turns ex
     assert.equal(r2.code, 2);
     assert.match(r2.stderr, /超過 2 輪/);
     assert.equal(gw.requests.length, 2);
+  } finally { gw.close(); }
+});
+
+test('cli: sync --dry-run ≡ check (read-only, check playbook, no render); sync (wet) auto-renders handbook; --no-render skips', async () => {
+  const { dir } = initRepo();
+  const gw = await mockGateway([{ content: '無 drift，文件與程式碼對齊\n\n## 涵蓋範圍\n\n- docs/a.md\n\n## 未涵蓋的變動\n\n無' }]);
+  try {
+    const dry = await runCli(['sync', '--dry-run', '--quiet'], { cwd: dir, env: gw.env });
+    assert.equal(dry.code, 0, dry.stderr);
+    const b = gw.requests[0].body;
+    assert.match(b.messages[0].content, /doc-align check — drift 偵測程序/, 'dry-run uses check playbook');
+    assert.ok(!b.tools.some((t) => t.function.name === 'write_file'), 'dry-run is read-only');
+    assert.ok(!existsSync(join(dir, 'docs', 'handbook.html')));
+
+    const wet = await runCli(['sync'], { cwd: dir, env: gw.env });
+    assert.equal(wet.code, 0, wet.stderr);
+    const b2 = gw.requests[1].body;
+    assert.match(b2.messages[0].content, /doc-align sync — 偵測並套用文件更新程序/, 'sync uses sync playbook');
+    assert.ok(b2.tools.some((t) => t.function.name === 'write_file'));
+    assert.ok(existsSync(join(dir, 'docs', 'handbook.html')), 'sync auto-renders');
+    assert.match(wet.stderr, /handbook 已輸出/);
+
+    const { rmSync } = await import('node:fs');
+    rmSync(join(dir, 'docs', 'handbook.html'));
+    const nr = await runCli(['sync', '--no-render', '--quiet'], { cwd: dir, env: gw.env });
+    assert.equal(nr.code, 0, nr.stderr);
+    assert.ok(!existsSync(join(dir, 'docs', 'handbook.html')), '--no-render respected');
+    const b3 = gw.requests[2].body;
+    assert.match(b3.messages[1].content, /--no-render/, 'flag forwarded to playbook');
+  } finally { gw.close(); }
+});
+
+test('cli: init auto-renders when a manifest exists afterwards; configure alias uses configure playbook; init --ci forwards --ci', async () => {
+  const { dir } = initRepo();
+  const gw = await mockGateway([{ content: '完成' }]);
+  try {
+    const r = await runCli(['init', '--ci', '--quiet'], { cwd: dir, env: gw.env });
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(gw.requests[0].body.messages[0].content, /doc-align init — 文件集初始化程序/);
+    assert.match(gw.requests[0].body.messages[1].content, /doc-align init --ci/);
+    assert.ok(existsSync(join(dir, 'docs', 'handbook.html')), 'init auto-renders');
+    const c = await runCli(['configure', '--quiet'], { cwd: dir, env: gw.env });
+    assert.equal(c.code, 0, c.stderr);
+    assert.match(gw.requests[1].body.messages[0].content, /doc-align configure — 初次接入設定程序/);
+    assert.ok(gw.requests[1].body.tools.some((t) => t.function.name === 'write_file'), 'configure can write CI files');
   } finally { gw.close(); }
 });

@@ -5,7 +5,9 @@ manifest，完成後的狀態必須能直接通過 check。`<SCRIPTS>` 由呼叫
 manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`。
 
 參數：無參數＝完整初始化；`--repair`＝docs/ 內容存在但 manifest 缺失或損壞時，
-只重建 manifest（不重寫文件）。
+只重建 manifest（不重寫文件）；`--ci`＝完成後接著執行 configure playbook 把 CI
+接線裝進 repo（`doc-align configure` 是單獨跑那一段的別名）；`--no-render`＝略過
+最後的 handbook 生成。
 
 ## 步驟
 
@@ -141,7 +143,12 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
    標記為已驗證。完整初始化模式下自檢不通過不得結束；`--repair` 模式不得重寫
    文件內容，自檢不通過的文件維持不標 last_verified，在最終報告列為「待 sync
    修正」，run 正常結束。
-9. **最終報告**：列出建立的檔案、各類型的採用／跳過決策與理由、驗證輸出摘要、
-   既有敘述（README 等）與程式碼的不符清單、尚未被任何文件涵蓋的重要範圍。
-   `--repair` 模式省略「既有敘述與程式碼不符清單」一項（該模式不做探索）。
-   init 不執行 git commit；是否提交由使用者決定。
+9. **生成 handbook**（除非 `--no-render`）：執行 `node <SCRIPTS>/render-handbook.js`
+   （輸出 `docs/handbook.html`），零 LLM；輸出路徑與 section 數記入最終報告。
+10. **接 CI**（僅 `--ci`）：讀取 `<DOC_ALIGN_ROOT>/playbook/configure.md`（呼叫端未給
+    `<DOC_ALIGN_ROOT>` 時為 `<SCRIPTS>` 的上一層）並依其步驟執行，把其輸出的待設定
+    secrets／variables 清單併入最終報告。
+11. **最終報告**：列出建立的檔案、各類型的採用／跳過決策與理由、驗證輸出摘要、
+    既有敘述（README 等）與程式碼的不符清單、尚未被任何文件涵蓋的重要範圍、
+    handbook 路徑。`--repair` 模式省略「既有敘述與程式碼不符清單」一項（該模式
+    不做探索）。init 不執行 git commit；是否提交由使用者決定。
