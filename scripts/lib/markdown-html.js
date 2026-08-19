@@ -6,13 +6,23 @@
 // `行內碼`、（path:line）證據引用、以及文件之間以 manifest path 互相引用時的
 // 頁內錨點連結。不在此子集內的語法按原樣輸出（escape 後），不猜測。
 
-const TYPE_ORDER = ['overview', 'use-case', 'architecture', 'class', 'sequence', 'db-schema'];
+const TYPE_ORDER = [
+  'overview', 'use-case', 'architecture', 'layers', 'deployment', 'class', 'state', 'sequence', 'decision',
+  'pipeline', 'api', 'permissions', 'db-schema',
+];
 const TYPE_GROUP_LABEL = {
   overview: '導讀',
   'use-case': '使用情境',
   architecture: '架構',
+  layers: '分層依賴',
+  deployment: '部署',
   class: '類別',
+  state: '狀態機',
   sequence: '流程',
+  decision: '決策',
+  pipeline: '資料管線',
+  api: 'API',
+  permissions: '權限',
   'db-schema': '資料',
 };
 

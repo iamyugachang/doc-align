@@ -46,6 +46,27 @@ Manifest（`docs/.docalign.yml`）內每份文件的 `path` 都是相對於 `doc
      標記為無影響。`--full` 模式或文件為 `unverified` 時，changed-scope 不提供
      matchedFiles，結構性變動門檻不適用，改為直接對照 repo 目前的整體結構驗證內容
      是否仍正確。
+   - **state**：讀 stateDiagram-v2，確認每個狀態仍存在於 code 的狀態集合（enum／常數），
+     每條轉移仍有對應的轉移邏輯且 guard 條件一致；code 新增的狀態或轉移而文件沒有也是
+     drift。狀態語意表與行為規則逐條對照。
+   - **decision**：讀 flowchart，沿 code 的條件分支（if／match／switch／策略表）逐一
+     確認每個菱形條件與分支結果仍成立、預設分支正確、分支順序（先判誰）未變。
+   - **pipeline**：讀 flowchart 與 task 表，對照管線定義（Airflow／Prefect／Dagster DAG
+     檔、dbt models、cron、批次腳本）確認每個 task 存在、上下游依賴方向、operator／
+     輸出位置、排程與重試規則；task 新增／移除／依賴改向是 drift。
+   - **layers**：執行 `node <SCRIPTS>/deps-check.js --doc <文件路徑>`（Python 的 src
+     根若非 `.`／`src` 可加 `--py-root <dir>`）。`status: drift` 時每條 violation 都是
+     drift（「程式碼行為可疑」解讀＝反向依賴，「文件過時」解讀＝分層宣告已變），
+     `unassigned` 非空時提示層級表 glob 未涵蓋；`unsupported` 則改語意分析並在涵蓋範圍
+     記錄。機械結果之外，行為規則的例外條款仍逐條對照。
+   - **deployment**：對照部署定義檔（docker-compose／k8s／terraform／CI deploy job）
+     確認服務／容器清單、網段與信任邊界、對外 port、image／來源、依賴與啟動順序、
+     secret 來源；元件表逐列對照。
+   - **permissions**：對照 RBAC 定義／decorator／middleware／policy 表，逐格確認
+     角色×資源矩陣；新增角色或資源而文件沒有也是 drift。
+   - **api**：對照 router／handler 註冊處，逐列確認 method、path、handler 位置、auth
+     要求；endpoint 新增／移除／改路徑是 drift。共通規則（版本、錯誤格式、分頁）
+     只在 matchedFiles 觸及共通層時檢查。
    - **script 失敗的通用處理**：任何機械驗證 script 當機或以非零狀態退出（非上述已定義
      的 `unsupported` 回報）時，視該文件為無法機械驗證，改用語意分析補驗，並在報告的
      「涵蓋範圍」一節記錄此次 script 失敗。

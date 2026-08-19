@@ -4,7 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { parse, serialize } from './lib/yaml-lite.js';
 
-export const KNOWN_TYPES = ['architecture', 'use-case', 'sequence', 'class', 'db-schema', 'overview'];
+// 文件類型＝驗證方法（見 playbook/check.md 步驟 4）。前六種為原始集合；後七種 2026-08 新增
+// （state／decision／pipeline／layers／deployment／permissions／api），篩選標準：能對照 code
+// 驗證、且 Mermaid（或 markdown 表格）寫得出來。策略／專案／圖表類（timeline、gantt、radar…）
+// 不是 code 真相，不進核心。
+export const KNOWN_TYPES = [
+  'architecture', 'use-case', 'sequence', 'class', 'db-schema', 'overview',
+  'state', 'decision', 'pipeline', 'layers', 'deployment', 'permissions', 'api',
+];
 
 export function loadManifest(path) {
   const { docs } = parse(readFileSync(path, 'utf8'));

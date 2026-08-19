@@ -152,6 +152,28 @@ doc-align 本體是 markdown playbook＋Node scripts，任何能讀檔、跑 she
 - `/doc-align render [--out <path>]` — 把文件集渲染成單頁 HTML handbook（預設 `docs/handbook.html`：側欄導覽、Mermaid 圖 CDN 渲染、深淺色主題；零 LLM 成本）。想把個別圖重畫成簡報用的品牌風 HTML/PNG，見 `playbook/render.md` 末尾「可選：精緻版單圖」——走外部 skill diagram-design，手動、逐張、非 doc-align 依賴
 - `/doc-align configure` — 初次接入：偵測 repo 的 GitHub／GitLab remotes，安裝對應 CI 範本並列出待設定的 secrets/variables 清單
 
+## 文件類型（13 種）
+
+類型決定驗證方法。init 逐型判斷「code 裡有沒有可對照的真相」，沒有就跳過並在報告記明理由——**不硬寫**。
+
+| type | 描述什麼 | 圖／主體 | check 怎麼驗 |
+|---|---|---|---|
+| `overview` | 系統目的、詞彙表、文件導讀 | 敘事 | 結構性變動時 LLM |
+| `architecture` | 模組與外部依賴 | flowchart | 結構性變動時 LLM |
+| `use-case` | 功能入口與角色 | use case 圖 | 入口增減時 LLM |
+| `sequence` | 一條流程誰呼叫誰（`flows/`） | sequenceDiagram | 沿 call path 逐步 |
+| `class` | domain 類別與關係 | classDiagram | symbol 存在性與關係 |
+| `db-schema` | 實體 schema＋欄位語意 | erDiagram＋表 | **機械** `schema-diff.js` 對 migrations |
+| `state` | 狀態機（訂單／job／連線） | stateDiagram-v2＋狀態表 | 對照 enum／轉移函式 |
+| `decision` | 決策／路由邏輯（config 優先序、fallback） | flowchart | 沿 if／match 逐分支 |
+| `pipeline` | 每條 DAG 一份：task 級依賴（`pipelines/`） | flowchart＋task 表 | 對照 Airflow／dbt／cron 定義 |
+| `layers` | 分層依賴方向 | flowchart＋層級表 | **機械** `deps-check.js` 掃 import 圖 |
+| `deployment` | 部署拓樸、信任邊界、對外入口 | flowchart subgraph＋元件表 | 對照 docker-compose／k8s／terraform |
+| `permissions` | 角色×資源矩陣 | 表格 | 對照 RBAC／decorator／policy |
+| `api` | endpoint 目錄 | 表格 | 對照 router 註冊 |
+
+後七種為 2026-08 擴充；篩選標準是「能對照 code 驗證＋Mermaid／表格寫得出來」，策略／專案／圖表類（timeline、gantt、radar…）不是 code 真相，不進核心。
+
 ## 安裝原理
 
 symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
@@ -242,6 +264,7 @@ job（這是 lint，不是 drift 報告）。
 |---|---|---|
 | `mermaid-check.js` | Mermaid 區塊啟發式 lint（括號平衡、未閉合字串、CJK 混寬括號） | `node scripts/mermaid-check.js <file.md>...`；有錯 exit 1 |
 | `schema-diff.js` | erDiagram 對 SQL migrations 的表／欄位差異 | `node scripts/schema-diff.js --doc docs/db-schema.md --sql <file-or-dir>` |
+| `deps-check.js` | layers 文件的分層依賴機械驗證：掃 Python／JS/TS import 圖，對照層級表＋flowchart 允許邊，列反向依賴 | `node scripts/deps-check.js --doc docs/layers.md [--py-root <dir>]` |
 | `changed-scope.js` | 依 manifest watch 算出受影響文件（增量／`--range`／`--full`） | `node scripts/changed-scope.js [--range <git range>] [--full]` |
 | `ci-gate.js` | PR 廉價閘門：`skip`、`affectedDocs`、`changedDocs`（docs 內變動的 .md） | `node scripts/ci-gate.js --base <ref>`（或 `--range`） |
 | `llm-check.js` | direct 模式 drift check：打包文件＋diff＋證據片段直打 OpenAI-compatible API | `node scripts/llm-check.js --range <git range> [--out <path>]`；env `DOC_ALIGN_LLM_BASE_URL`／`_API_KEY`／`_MODEL`［／`_MAX_CHARS`／`_TIMEOUT_MS`］ |
@@ -292,6 +315,6 @@ pre-commit 範例（只跑機械層、零 LLM）：
           watch:
             - migrations/**
 
-  `type` 必須是 `architecture`、`use-case`、`sequence`、`class`、`db-schema`、`overview` 之一；`watch` 與 `last_verified` 可省略（新文件尚未驗證過時）。
+  `type` 必須是 `architecture`、`use-case`、`sequence`、`class`、`db-schema`、`overview`、`state`、`decision`、`pipeline`、`layers`、`deployment`、`permissions`、`api` 之一；`watch` 與 `last_verified` 可省略（新文件尚未驗證過時）。
 - schema-diff 只支援 SQL migrations（CREATE TABLE / ALTER ADD·DROP COLUMN / DROP TABLE），其他格式由 agent 語意分析 fallback
 - mermaid-check 是啟發式結構檢查，非完整語法驗證

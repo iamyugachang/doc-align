@@ -43,6 +43,18 @@ doc-align 是一個文件對齊工具，解決兩件事：
 | `db-schema.md` | Schema 快照 + 欄位用途註記（有 DB 才生成） | 對 migrations／ORM models 機械 diff |
 | `overview.md` | 系統目的、domain 詞彙表、文件導讀順序 | LLM 語意判斷，僅結構性變動時觸發 |
 
+2026-08 擴充七型（篩選標準：code 有可對照真相、Mermaid 或 markdown 表格寫得出來；策略／專案／圖表類不進核心）：
+
+| 文件 | 內容 | 驗證方式 |
+|---|---|---|
+| `state/<machine>.md` | 狀態機（stateDiagram-v2）＋狀態語意表＋每條轉移一條規則 | 對照 enum／轉移函式 |
+| `decisions/<topic>.md` | 決策／路由邏輯（flowchart）＋每分支一條規則 | 沿 if／match／策略表逐分支 |
+| `pipelines/<dag>.md` | 每條 DAG 一份：task 級 flowchart＋task 表 | 對照 DAG／dbt／cron 定義 |
+| `layers.md` | 分層依賴（flowchart 邊＝允許方向）＋層級表 `\| 層 \| 目錄 \| 說明 \|` | **機械**：deps-check.js 掃 import 圖 |
+| `deployment.md` | 部署拓樸（subgraph＝網段／信任邊界）＋元件表 | 對照 docker-compose／k8s／terraform |
+| `permissions.md` | 角色×資源矩陣表 | 對照 RBAC 定義／decorator／policy |
+| `api.md` | endpoint 表（method／path／handler／auth／flow） | 對照 router 註冊 |
+
 設計原則：**文件類型本身決定驗證方法**。圖表是結構化宣告（類別、呼叫步驟、欄位都是具體 symbol），比自然語言敘事更可機械驗證。
 
 ### 文件結構（結構化敘事）
@@ -71,6 +83,7 @@ doc-align 是一個文件對齊工具，解決兩件事：
 docs:
   - path: flows/refund.md
     type: sequence            # architecture | use-case | sequence | class | db-schema | overview
+                              # | state | decision | pipeline | layers | deployment | permissions | api
     watch:                    # 這份文件描述的程式碼範圍（glob）
       - src/billing/**
       - src/api/routes/refund.py

@@ -54,3 +54,18 @@ test('adapters contain no agent-specific tool names', () => {
     assert.ok(!/Grep tool|Read tool|Task tool|Bash tool|TodoWrite|WebFetch/.test(md), `${p} is agent-agnostic`);
   }
 });
+
+test('init and check playbooks cover every manifest type (applicability + verification method)', async () => {
+  const { KNOWN_TYPES } = await import('../scripts/manifest.js');
+  const init = readFileSync(ROOT + 'playbook/init.md', 'utf8');
+  const check = readFileSync(ROOT + 'playbook/check.md', 'utf8');
+  const readme = readFileSync(ROOT + 'README.md', 'utf8');
+  for (const t of KNOWN_TYPES) {
+    assert.ok(init.includes(`${t}：`) || init.includes(`${t} 用`) || init.includes(`${t}（`), `init.md decides/skeletons ${t}`);
+    assert.ok(check.includes(`**${t}**`) || check.includes(`**${t} /`) || check.includes(t), `check.md verifies ${t}`);
+    assert.ok(readme.includes(`\`${t}\``), `README lists ${t}`);
+  }
+  assert.ok(init.includes('不適用就不寫'), 'init forbids forcing inapplicable types');
+  assert.ok(init.includes('每條 DAG／pipeline 各一份文件'), 'one doc per DAG');
+  assert.ok(init.includes('deps-check.js') && check.includes('deps-check.js'), 'layers mechanical check wired');
+});

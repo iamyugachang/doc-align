@@ -121,3 +121,9 @@ test('add-doc rejects a missing --type with a distinct message', () => {
     '--doc', 'new.md', '--watch', 'x/**'], { stdio: 'pipe' }),
     /add-doc requires --type/);
 });
+
+test('KNOWN_TYPES includes the seven 2026-08 extension types and they round-trip through the manifest', async () => {
+  const { KNOWN_TYPES } = await import('../scripts/manifest.js');
+  for (const t of ['state', 'decision', 'pipeline', 'layers', 'deployment', 'permissions', 'api']) assert.ok(KNOWN_TYPES.includes(t), t);
+  assert.equal(KNOWN_TYPES.length, 13);
+});

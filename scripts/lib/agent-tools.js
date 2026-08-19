@@ -4,7 +4,7 @@
 // 寫檔只在 init／sync／configure 開放且限定 repo 內或系統暫存目錄；任意 shell 要 --allow-shell
 // 明確打開。模型無法越權，錯誤以字串回給模型讓它自行修正，不拋例外中斷迴圈。
 
-import { execFile as execFileCb, execFileSync } from 'node:child_process';
+import { execFile as execFileCb } from 'node:child_process';
 import {
   existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync,
 } from 'node:fs';
@@ -12,18 +12,19 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import { matchesAny } from './glob.js';
+import { SKIP_DIRS, listRepoFiles } from './repo-files.js';
+export { listRepoFiles };
 
 const execFile = promisify(execFileCb);
 
 export const KNOWN_SCRIPTS = [
   'changed-scope.js', 'ci-gate.js', 'generate-doc-set.js', 'manifest.js', 'mermaid-check.js',
-  'render-handbook.js', 'schema-diff.js', 'llm-check.js',
+  'render-handbook.js', 'schema-diff.js', 'llm-check.js', 'deps-check.js',
 ];
 export const GIT_READONLY = [
   'diff', 'log', 'show', 'rev-parse', 'ls-files', 'status', 'blame', 'grep', 'remote', 'branch',
   'describe', 'cat-file', 'name-rev', 'shortlog', 'rev-list',
 ];
-const SKIP_DIRS = new Set(['.git', 'node_modules', '.venv', 'venv', '__pycache__', 'dist', 'build', '.next', 'target']);
 
 function fn(name, description, properties, required = []) {
   return { type: 'function', function: { name, description, parameters: { type: 'object', properties, required, additionalProperties: false } } };
@@ -76,24 +77,6 @@ function isBinary(buf) {
   const n = Math.min(buf.length, 8000);
   for (let i = 0; i < n; i += 1) if (buf[i] === 0) return true;
   return false;
-}
-
-// 走訪 repo 檔案清單：git repo 用 ls-files（尊重 .gitignore，含未追蹤），否則遞迴 fs。
-export function listRepoFiles(cwd) {
-  try {
-    const out = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-    return out.split('\n').filter(Boolean).filter((f) => existsSync(join(cwd, f)));
-  } catch {
-    const files = [];
-    const walk = (dir) => {
-      for (const ent of readdirSync(dir, { withFileTypes: true })) {
-        if (ent.isDirectory()) { if (!SKIP_DIRS.has(ent.name)) walk(join(dir, ent.name)); }
-        else if (ent.isFile()) files.push(relative(cwd, join(dir, ent.name)).split(sep).join('/'));
-      }
-    };
-    walk(cwd);
-    return files;
-  }
 }
 
 // 唯讀 git 子命令裡仍有會寫入或執行外部程式的旗標，逐一擋掉（模型可能被 repo 內容誘導）。
