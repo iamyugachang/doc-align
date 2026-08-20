@@ -2,12 +2,18 @@
 description: doc-align — 讓 docs/ 文件集與程式碼對齊。主命令：init [--repair] [--ci]（初始化＋自動 render handbook）、sync [--dry-run] [--range X | --full]（偵測 drift → 更新 → 推進 manifest → 自動 render；--dry-run 只出報告）。別名：check＝sync --dry-run、render、configure
 ---
 
-doc-align repo 根目錄（由安裝 symlink 解析；兩個安裝位置擇一命中）：
+（本 command 是可選的便利層：opencode 已原生支援 Agent Skills，會直接讀
+`~/.claude/skills/doc-align`／`~/.agents/skills/doc-align` 的 SKILL.md；裝這個
+command 只是為了 `/doc-align <args>` 這種帶參數的 slash 調用。）
 
-!`if [ -n "$DOC_ALIGN_ROOT" ]; then echo "$DOC_ALIGN_ROOT"; else p=$(realpath ~/.config/opencode/commands/doc-align.md 2>/dev/null || realpath .opencode/commands/doc-align.md); dirname "$(dirname "$(dirname "$(dirname "$p")")")"; fi`
+doc-align repo 根目錄（依序：環境變數 → 由本檔 symlink 反解 → 標準 skill 安裝位置）：
 
-（若上方為空或該目錄下沒有 `playbook/`，停止並請使用者確認安裝：symlink 是否存在、
-opencode.json 是否已對該目錄放行 `permission.external_directory`——非互動模式下未放行會被自動拒絕。）
+!`if [ -n "$DOC_ALIGN_ROOT" ]; then echo "$DOC_ALIGN_ROOT"; else p=$(realpath ~/.config/opencode/commands/doc-align.md 2>/dev/null || realpath .opencode/commands/doc-align.md 2>/dev/null); for c in "$(dirname "$(dirname "$(dirname "$(dirname "$p")")")")" "$HOME/.claude/skills/doc-align" "$HOME/.agents/skills/doc-align"; do if [ -f "$c/playbook/check.md" ]; then echo "$c"; break; fi; done; fi`
+
+（若上方為空，停止並請使用者確認安裝：doc-align 是否已 clone 到
+`~/.claude/skills/doc-align` 或 `~/.agents/skills/doc-align`（或設 `DOC_ALIGN_ROOT`）；
+非互動模式下讀取專案外目錄被拒時，在 opencode.json 對該目錄放行
+`permission.external_directory`。）
 
 你是 doc-align 的執行 agent。上方輸出即 DOC_ALIGN_ROOT。使用者參數：$ARGUMENTS
 

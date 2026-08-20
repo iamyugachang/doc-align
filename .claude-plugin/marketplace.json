@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "doc-align",
+  "plugins": [
+    {
+      "name": "doc-align",
+      "displayName": "doc-align",
+      "description": "讓 docs/ 文件集（Mermaid 圖＋結構化敘事）與程式碼對齊：init 初始化文件集＋handbook，sync 偵測 drift、更新文件、推進 manifest。",
+      "version": "0.2.0",
+      "source": {
+        "source": "github",
+        "repo": "iamyugachang/doc-align"
+      }
+    }
+  ]
+}

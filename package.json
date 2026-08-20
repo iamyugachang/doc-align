@@ -18,6 +18,8 @@
     "playbook",
     "adapters",
     "ci",
+    "SKILL.md",
+    ".claude-plugin",
     "README.md"
   ]
 }

@@ -10,15 +10,16 @@
 - `playbook/` — 核心流程指令（agent 無關的 markdown；init／sync，以及 check＝sync 的偵測段、render、configure）；`writing.md`＝寫作心法（arc42／C4／Diátaxis／ADR／Google style 蒸餾版）、`diagrams.md`＝圖的設計規範（diagram-design 的哲學／選型／複雜度預算／語意角色／反模式換算成 Mermaid），init／sync 寫文件時都必須遵守；`optional-skills.md`＝可選外部 skill 的偵測與使用規則（不 vendor）
 - `scripts/` — deterministic Node.js scripts（零依賴）
 - `bin/doc-align.js` — 獨立 CLI：內建最小 agent loop（tool calling）直打 OpenAI-compatible API，不需任何外部 agent
-- `adapters/claude-code/` — Claude Code skill 薄殼
-- `adapters/opencode/` — opencode command 薄殼
+- `SKILL.md`（repo 根）— [Agent Skills 標準](https://agentskills.io/specification)的 skill 本體：repo 根就是自包含的 skill 目錄，Claude Code／opencode／pi 等直接讀
+- `adapters/opencode/` — opencode 可選 command 薄殼（`/doc-align <args>` 帶參數 slash 調用用；skill 本體 opencode 已原生支援）
+- `.claude-plugin/` — Claude Code plugin／marketplace manifests（`/plugin` 安裝通道）
 - `tests/` — 單元與整合測試（`npm test`）
 
 三種使用方式，同一套 playbook／scripts：
 
 | 方式 | 適合 | LLM 從哪來 |
 |---|---|---|
-| **當 skill 用**（Claude Code／opencode／oh-my-pi…） | 平常就開著 agent 的人 | 該 agent 自己的 |
+| **當 skill 用**（Claude Code／opencode／pi／oh-my-pi…） | 平常就開著 agent 的人 | 該 agent 自己的 |
 | **獨立 CLI**（`doc-align sync --dry-run`） | 不想開 agent、或公司電腦只有內部 gateway | 內建 agent loop 直打 OpenAI-compatible endpoint |
 | **CI**（GitHub Actions／GitLab CI） | PR／MR 自動留言 | 同 CLI（direct 或 agent runner），或 opencode／claude／自帶 harness |
 
@@ -93,32 +94,53 @@ scripts）／`ask_user`；`init`／`sync` 額外開 `write_file`／`move_file`�
 一律回「非互動」，agent 依 playbook 的非互動情境處理）。gateway 必須支援 OpenAI tool calling；不支援時
 （通常是 `tools` 欄位被回 HTTP 4xx）改用 `sync --dry-run --direct`（純文字單次呼叫）。
 
-## 安裝（Claude Code）
+## 安裝（當 skill 用：Claude Code／opencode／pi…）
 
-    ln -sfn "$(pwd)/adapters/claude-code" ~/.claude/skills/doc-align
+repo 根就是 [Agent Skills 標準](https://agentskills.io/specification)的 skill 目錄
+（SKILL.md＋playbook/＋scripts/ 自包含），**clone 進 skills 目錄就是安裝**，
+不需要 symlink：
 
-之後在任一 repo 內使用 `/doc-align init` 與 `/doc-align sync [--dry-run]`。
+    git clone https://github.com/iamyugachang/doc-align ~/.claude/skills/doc-align
 
-## 安裝（opencode）
+一份 clone 各 harness 通用：
+
+| harness | 讀 `~/.claude/skills`？ | 備註 |
+|---|---|---|
+| **Claude Code** | ✅ 原生 | `/doc-align init`、`/doc-align sync [--dry-run]` |
+| **opencode** | ✅ 原生（[skills 文件](https://opencode.ai/docs/skills/)） | agent 依 description 自動載入；帶參數 slash 調用見下方可選 command |
+| **pi／oh-my-pi** | 設定加一行 | `~/.pi/agent/settings.json` 加 `"skills": ["~/.claude/skills"]`；或改 clone 到 pi 預設會讀的 `~/.agents/skills/doc-align`（opencode 也讀這裡，但 Claude Code 不讀） |
+| **Codex CLI／Cursor／VS Code…** | 依各家 Agent Skills 支援 | 已採用該標準的 harness 都能直接載入這個目錄 |
+
+更新＝`cd ~/.claude/skills/doc-align && git pull`。換機器＝重新 clone。
+
+**Claude Code 也可走 plugin marketplace**（官方第三方發佈通道）：
+
+    /plugin marketplace add iamyugachang/doc-align
+    /plugin install doc-align@doc-align
+
+兩種裝法擇一即可，直接 clone 是主路徑。
+
+### opencode 補充
+
+skill 本體 opencode 原生載入，無需任何設定。可選加裝 command 薄殼，
+獲得 `/doc-align <args>` 帶參數的 slash 調用：
 
     mkdir -p ~/.config/opencode/commands
-    ln -sfn "$(pwd)/adapters/opencode/commands/doc-align.md" ~/.config/opencode/commands/doc-align.md
+    ln -sfn ~/.claude/skills/doc-align/adapters/opencode/commands/doc-align.md ~/.config/opencode/commands/doc-align.md
 
-再到 `~/.config/opencode/opencode.json`（或 `.jsonc`）放行 doc-align 目錄——opencode
-會把專案目錄以外的讀取視為 `external_directory`，互動模式每次都問、`opencode run`
-非互動模式則**直接自動拒絕**，adapter 讀不到 playbook 就會停在第一步：
+非互動：`opencode run --command doc-align "sync --dry-run --range origin/main...HEAD"`
+（參數整段加引號，否則 `--range` 會被 opencode 自己吃掉）。`opencode run` 偶爾會在
+讀完 playbook 後停住，`opencode run --continue "繼續"` 即可接續。
+
+疑難排解：非互動模式讀取專案外目錄被自動拒絕時，在 `~/.config/opencode/opencode.json`
+放行 skill 目錄：
 
     {
       "$schema": "https://opencode.ai/config.json",
       "permission": {
-        "external_directory": { "/abs/path/to/doc-align/**": "allow" }
+        "external_directory": { "~/.claude/skills/doc-align/**": "allow" }
       }
     }
-
-之後在 opencode 內使用 `/doc-align init` 與 `/doc-align sync [--dry-run]`；非互動：
-`opencode run --command doc-align "sync --dry-run --range origin/main...HEAD"`（參數整段加引號，
-否則 `--range` 會被 opencode 自己吃掉）。已在真機驗證（1.18.x，`render` 全程跑通）；
-`opencode run` 偶爾會在讀完 playbook 後停住，`opencode run --continue "繼續"` 即可接續。
 
 公司內部 OpenAI-compatible gateway 的 provider 設定寫在同一個檔即可（與 CI 範本相同）：
 
@@ -132,30 +154,22 @@ scripts）／`ask_user`；`init`／`sync` 額外開 `write_file`／`move_file`�
 
 然後 `opencode -m internal/your-model-id`。
 
-## 安裝（其他 agent：oh-my-pi、Codex、Cursor…）
+### 不支援 Agent Skills 的 agent
 
-doc-align 本體是 markdown playbook＋Node scripts，任何能讀檔、跑 shell 的 agent 都能用；
-差別只在「怎麼讓 agent 找到 repo 根」：
+clone 到固定位置，`export DOC_ALIGN_ROOT=/abs/path/doc-align`，
+然後直接給它一句 prompt：
 
-- **會匯入 `.claude/skills` 的 agent**（oh-my-pi／omp 會，見其 docs/skills.md）：照
-  Claude Code 的方式 symlink 到 `~/.claude/skills/doc-align`（或專案內
-  `.claude/skills/doc-align`）即可，通常會出現 `/skill:doc-align`。SKILL.md 內建
-  fallback：不知道自己被裝在哪時，依序試 `$DOC_ALIGN_ROOT` 環境變數 →
-  `~/.claude/skills/doc-align` → `.claude/skills/doc-align`。
-- **其他任何 agent**：clone 到固定位置，`export DOC_ALIGN_ROOT=/abs/path/doc-align`，
-  然後直接給它一句 prompt：
+    讀取 $DOC_ALIGN_ROOT/playbook/check.md 並完全遵循其步驟；<SCRIPTS> 為
+    $DOC_ALIGN_ROOT/scripts；以目前 repo 為對象執行 check --range origin/main...HEAD。
 
-      讀取 $DOC_ALIGN_ROOT/playbook/check.md 並完全遵循其步驟；<SCRIPTS> 為
-      $DOC_ALIGN_ROOT/scripts；以目前 repo 為對象執行 check --range origin/main...HEAD。
-
-  這也就是 CI 範本裡餵給 opencode／claude 的那句話。子命令換 playbook 檔名即可。
-- 若該 agent 有專案目錄外讀取的權限沙箱（opencode 有、Claude Code 的 `-p` 要
-  `--dangerously-skip-permissions`），要先對 doc-align 目錄放行，否則第一步讀
-  playbook 就會被擋。
+這也就是 CI 範本裡餵給 opencode／claude 的那句話。子命令換 playbook 檔名即可。
+若該 agent 有專案目錄外讀取的權限沙箱（opencode 有、Claude Code 的 `-p` 要
+`--dangerously-skip-permissions`），要先對 doc-align 目錄放行，否則第一步讀
+playbook 就會被擋。
 
 **公司電腦 checklist**：(1) Node ≥ 18＋git；(2) 能 clone doc-align——內網連不到 GitHub
-就先建內部鏡像（CI 的 `DOC_ALIGN_REPO_URL` 同一個）；(3) 上面對應 agent 的 symlink／
-`DOC_ALIGN_ROOT`；(4) agent 的專案外讀取權限放行；(5) LLM 走內部 gateway 的 provider
+就先建內部鏡像（CI 的 `DOC_ALIGN_REPO_URL` 同一個）；(3) clone 到對應 agent 的
+skills 目錄（或 `DOC_ALIGN_ROOT`）；(4) agent 的專案外讀取權限放行；(5) LLM 走內部 gateway 的 provider
 設定；(6) 在目標 repo 跑一次 `/doc-align render`（零 LLM）確認整條路通，再跑 `sync --dry-run`。
 
 ## 用法
@@ -195,10 +209,13 @@ doc-align 本體是 markdown playbook＋Node scripts，任何能讀檔、跑 she
 
 ## 安裝原理
 
-symlink 不是只裝 SKILL.md：`~/.claude/skills/doc-align` 指向 repo 內的
-`adapters/claude-code/`，SKILL.md 執行時用 `realpath` 穿透 symlink 找回 repo 根，
-再以絕對路徑取用 `playbook/` 與 `scripts/`。因此 **clone 下來的整個 repo 就是安裝
-本體**，`git pull` 即完成更新。換機器＝`git clone` + `ln -sfn`，無需複製 scripts。
+repo 根即 skill：SKILL.md 與 `playbook/`、`scripts/` 同層，符合 Agent Skills 標準的
+自包含佈局（skill 內附帶資源以相對路徑引用）。因此 **clone 下來的整個 repo 就是安裝
+本體**，clone 進 skills 目錄即完成安裝，`git pull` 即完成更新——無 symlink、無
+realpath 反查、無複製 scripts。舊版（≤0.2.0 初期）的
+`ln -sfn adapters/claude-code ~/.claude/skills/doc-align` 裝法已淘汰；
+既有安裝改成 `rm ~/.claude/skills/doc-align && git clone … ~/.claude/skills/doc-align`
+（或把 symlink 改指 repo 根——SKILL.md 相對路徑會穿透 symlink，仍可用）。
 
 ## CI（GitHub Actions／GitLab CI，PR／MR 留言）
 

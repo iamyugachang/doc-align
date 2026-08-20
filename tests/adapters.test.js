@@ -13,8 +13,8 @@ function frontmatter(md) {
   return m[1];
 }
 
-test('both adapters exist and reference every playbook subcommand', () => {
-  for (const p of ['adapters/claude-code/SKILL.md', 'adapters/opencode/commands/doc-align.md']) {
+test('root SKILL.md and opencode command exist and reference every playbook subcommand', () => {
+  for (const p of ['SKILL.md', 'adapters/opencode/commands/doc-align.md']) {
     const md = readFileSync(ROOT + p, 'utf8');
     for (const sub of ['check', 'sync', 'init']) {
       assert.ok(md.includes(sub), `${p} mentions ${sub}`);
@@ -49,10 +49,36 @@ test('opencode command has description frontmatter and resolves repo root', () =
 });
 
 test('adapters contain no agent-specific tool names', () => {
-  for (const p of ['adapters/claude-code/SKILL.md', 'adapters/opencode/commands/doc-align.md']) {
+  for (const p of ['SKILL.md', 'adapters/opencode/commands/doc-align.md']) {
     const md = readFileSync(ROOT + p, 'utf8');
     assert.ok(!/Grep tool|Read tool|Task tool|Bash tool|TodoWrite|WebFetch/.test(md), `${p} is agent-agnostic`);
   }
+});
+
+test('root SKILL.md is an Agent Skills spec-compliant self-contained skill', () => {
+  const fm = frontmatter(readFileSync(ROOT + 'SKILL.md', 'utf8'));
+  const name = fm.match(/^name:\s*(\S+)/m)?.[1];
+  assert.equal(name, 'doc-align', 'name matches install directory name');
+  assert.match(name, /^[a-z0-9]+(-[a-z0-9]+)*$/, 'name follows spec charset');
+  const desc = fm.match(/^description:\s*(.+)$/m)?.[1];
+  assert.ok(desc && desc.length >= 1 && desc.length <= 1024, 'description within 1–1024 chars');
+  const compat = fm.match(/^compatibility:\s*(.+)$/m)?.[1];
+  assert.ok(!compat || compat.length <= 500, 'compatibility within 500 chars');
+  // self-contained: bundled resources live next to SKILL.md
+  for (const p of ['playbook/check.md', 'playbook/init.md', 'playbook/sync.md', 'scripts/manifest.js']) {
+    assert.ok(existsSync(ROOT + p), `${p} exists beside SKILL.md`);
+  }
+  assert.ok(!existsSync(ROOT + 'adapters/claude-code'), 'legacy claude-code adapter removed');
+});
+
+test('claude plugin manifests are valid and consistent', () => {
+  const plugin = JSON.parse(readFileSync(ROOT + '.claude-plugin/plugin.json', 'utf8'));
+  assert.equal(plugin.name, 'doc-align');
+  assert.ok(plugin.version, 'plugin has a version');
+  const marketplace = JSON.parse(readFileSync(ROOT + '.claude-plugin/marketplace.json', 'utf8'));
+  const entry = marketplace.plugins.find((p) => p.name === 'doc-align');
+  assert.ok(entry, 'marketplace lists doc-align');
+  assert.equal(entry.source.repo, 'iamyugachang/doc-align');
 });
 
 test('init and check playbooks cover every manifest type (applicability + verification method)', async () => {

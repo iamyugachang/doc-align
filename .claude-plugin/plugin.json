@@ -1,0 +1,9 @@
+{
+  "name": "doc-align",
+  "displayName": "doc-align",
+  "version": "0.2.0",
+  "description": "讓 docs/ 文件集（Mermaid 圖＋結構化敘事）與程式碼對齊：init 初始化文件集＋handbook，sync 偵測 drift、更新文件、推進 manifest。",
+  "author": {
+    "name": "iamyugachang"
+  }
+}
