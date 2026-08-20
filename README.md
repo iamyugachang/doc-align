@@ -90,6 +90,7 @@ CI 用同一組名字：GitLab 放 CI/CD Variables（KEY 勾 Masked）；GitHub 
 
 設好後 `cd` 到目標 repo，依序驗證：
 
+    doc-align doctor                                   # 驗 env＋gateway：chat（direct 模式）與 tools（agent 模式）各探測一次
     doc-align render                                   # 零 LLM，先確認 CLI 本身通
     doc-align sync --dry-run --range HEAD~3...HEAD --verbose   # agent 模式，確認 gateway 的 tool calling 通
     doc-align sync --dry-run                           # 增量 drift 報告（不寫檔）
@@ -184,7 +185,10 @@ playbook 就會被擋。
 **公司電腦 checklist**：(1) Node ≥ 18＋git；(2) 能 clone doc-align——內網連不到 GitHub
 就先建內部鏡像（CI 的 `DOC_ALIGN_REPO_URL` 同一個）；(3) clone 到對應 agent 的
 skills 目錄（或 `DOC_ALIGN_ROOT`）；(4) agent 的專案外讀取權限放行；(5) LLM 走內部 gateway 的 provider
-設定；(6) 在目標 repo 跑一次 `/doc-align render`（零 LLM）確認整條路通，再跑 `sync --dry-run`。
+設定；(6) **`doc-align doctor`**——驗 Node／git／env／gateway 的 chat 與 tools 相容性，
+每項附排查提示（proxy／自簽憑證／BASE_URL 路徑…），並直接告訴你 direct 與 agent
+兩種模式哪個可用；(7) 在目標 repo 跑一次 `doc-align render`（零 LLM）確認整條路通，
+再跑 `sync --dry-run`。
 
 ## 用法
 
@@ -350,6 +354,7 @@ job（這是 lint，不是 drift 報告）。
 | `ci-gate.js` | PR 廉價閘門：`skip`、`affectedDocs`、`changedDocs`（docs 內變動的 .md） | `node scripts/ci-gate.js --base <ref>`（或 `--range`） |
 | `llm-check.js` | direct 模式 drift check：打包文件＋diff＋證據片段直打 OpenAI-compatible API | `node scripts/llm-check.js (--range <git range> \| --incremental) [--out <path>]`；`--incremental`＝各文件自 `last_verified` 起算（nightly 用）；env `DOC_ALIGN_LLM_BASE_URL`／`_API_KEY`／`_MODEL`［／`_MAX_CHARS`／`_TIMEOUT_MS`］ |
 | `../bin/doc-align.js` | 獨立 CLI（agent loop；見上方「安裝（獨立 CLI）」） | `node bin/doc-align.js init\|sync [--dry-run] …`（別名 check／render／configure）；agent 零件在 `scripts/lib/agent-{loop,tools,prompt}.js`，可被自帶 harness 重用 |
+| `llm-doctor.js` | 封閉環境部署前診斷：Node／git／env／gateway 的 chat 與 tools 相容性，附排查提示 | `node scripts/llm-doctor.js`（＝`doc-align doctor`）；chat 探測失敗 exit 1 |
 | `manifest.js` | 讀寫 `docs/.docalign.yml` | `read`／`add-doc --doc <p> --type <t> --watch <glob>...`／`set-watch`／`set-verified --doc <p> --commit <sha>` |
 | `render-handbook.js` | 單頁 HTML handbook（含 branch＋commit＋時間 provenance；可嵌 drift 報告與狀態 chip） | `node scripts/render-handbook.js [--out <path>] [--branch <name>] [--drift-report <md>]` |
 | `generate-doc-set.js` | 依 JSON spec 一次寫出文件集＋manifest（init 內部使用） | `node scripts/generate-doc-set.js --spec <path\|-> [--docs-dir docs] [--force] [--commit <sha>]` |

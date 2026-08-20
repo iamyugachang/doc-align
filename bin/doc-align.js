@@ -26,7 +26,7 @@ import { createExecutor, toolDefinitions } from '../scripts/lib/agent-tools.js';
 import { llmConfigFromEnv, loadEnvFile } from '../scripts/lib/llm-client.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SUBCOMMANDS = ['check', 'sync', 'init', 'render', 'configure'];
+const SUBCOMMANDS = ['check', 'sync', 'init', 'render', 'configure', 'doctor'];
 const VERSION = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version || '0.0.0';
 
 const USAGE = `doc-align ${VERSION} — 讓 docs/ 文件集與程式碼對齊
@@ -38,6 +38,9 @@ const USAGE = `doc-align ${VERSION} — 讓 docs/ 文件集與程式碼對齊
   doc-align sync [--dry-run] [--range <git range> | --full] [--no-render]
       偵測 drift → 裁決 → 更新文件 → 推進 manifest → 自動 render
       --dry-run 只輸出 drift 報告、不寫任何檔案（CI 用這個）；--direct 改走單次打包（需 --range）
+
+  doc-align doctor
+      驗證 DOC_ALIGN_LLM_* 與 gateway 相容性（chat＋tools 探測；封閉環境部署前先跑這個）
 
 別名（進階）：check ≡ sync --dry-run；render [--out <html>] 只重生 handbook（零 LLM）；
             configure ≡ init --ci 的 CI 接線段（不做初始化）
@@ -238,6 +241,7 @@ async function main() {
     return 1;
   }
   if (o.chdir) process.chdir(o.chdir);
+  if (o.sub === 'doctor') return (await runNode('llm-doctor.js', [], { inherit: true })).code;
   if (o.sub === 'render') return cmdRender(o);
   if (o.sub === 'sync' && o.dryRun && o.direct) return cmdCheckDirect(o);
   return cmdAgent(o);
