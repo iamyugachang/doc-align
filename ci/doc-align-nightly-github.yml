@@ -1,0 +1,96 @@
+# doc-align nightly — GitHub Actions 範本：每天台灣午夜驗 main、把 handbook＋drift
+# 報告發佈到 GitHub Pages（自動 lane：Pages 是全團隊討論專案時的 single source of truth）
+#
+# 複製到目標 repo 的 .github/workflows/doc-align-nightly.yml，並：
+#   1. repo Settings → Pages → Source 選 "GitHub Actions"
+#   2. Secret   DOC_ALIGN_LLM_API_KEY  — OpenAI-compatible provider／gateway 的 key
+#      Variable DOC_ALIGN_LLM_BASE_URL — endpoint（含 /v1）
+#      Variable DOC_ALIGN_LLM_MODEL    — model id
+#      （沒設憑證也能跑：只發佈 handbook，drift 狀態顯示「未設定」）
+#
+# 行為：
+#   - drift check 走 --incremental：各文件自 manifest 的 last_verified 起算。
+#     drift 在有人跑 sync 裁決前每晚都會再出現，不會被「今天沒 commit」蓋掉。
+#   - 手動觸發（workflow_dispatch）可選 mode=full：改用內建 agent loop 全量重驗
+#     （需 gateway 支援 OpenAI tool calling，LLM 呼叫較多）。
+#   - Pages 內容：/（handbook＋provenance＋drift 狀態 chip＋報告全文）、
+#     /drift-report.md（原始報告）、/drift.json（shields.io endpoint badge，
+#     README 可貼 https://img.shields.io/endpoint?url=<pages>/drift.json）。
+#   - drift 永不 fail job——drift 是資訊，不是門檻。
+name: doc-align-nightly
+on:
+  schedule:
+    - cron: '0 16 * * *'   # 16:00 UTC ＝ 台灣午夜 00:00
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: incremental（direct，預設）或 full（agent loop 全量重驗）
+        default: incremental
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: doc-align-nightly
+  cancel-in-progress: false
+
+env:
+  DOC_ALIGN_REPO: iamyugachang/doc-align
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch doc-align
+        run: |
+          # private repo 時把 URL 換成 https://x-access-token:${{ secrets.DOC_ALIGN_TOKEN }}@github.com/${DOC_ALIGN_REPO}
+          git clone --depth 1 "https://github.com/${DOC_ALIGN_REPO}" "$RUNNER_TEMP/doc-align"
+      - name: Drift check
+        env:
+          DOC_ALIGN_LLM_API_KEY: ${{ secrets.DOC_ALIGN_LLM_API_KEY }}
+          DOC_ALIGN_LLM_BASE_URL: ${{ vars.DOC_ALIGN_LLM_BASE_URL }}
+          DOC_ALIGN_LLM_MODEL: ${{ vars.DOC_ALIGN_LLM_MODEL }}
+          MODE: ${{ inputs.mode || 'incremental' }}
+        run: |
+          if [ -z "$DOC_ALIGN_LLM_API_KEY" ]; then
+            echo "doc-align: LLM 憑證未設定，跳過 drift check（只發佈 handbook）"
+          elif [ "$MODE" = "full" ]; then
+            node "$RUNNER_TEMP/doc-align/bin/doc-align.js" sync --dry-run --full --yes --quiet --out "$RUNNER_TEMP/report.md"
+          else
+            node "$RUNNER_TEMP/doc-align/scripts/llm-check.js" --incremental --out "$RUNNER_TEMP/report.md"
+          fi
+      - name: Build Pages site (handbook + drift report + badge)
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          mkdir -p public
+          if [ -s "$RUNNER_TEMP/report.md" ]; then
+            node "$RUNNER_TEMP/doc-align/scripts/render-handbook.js" \
+              --branch "$BRANCH" --drift-report "$RUNNER_TEMP/report.md" --out public/index.html
+            cp "$RUNNER_TEMP/report.md" public/drift-report.md
+            if head -c 500 "$RUNNER_TEMP/report.md" | grep -q "無 drift"; then
+              printf '{"schemaVersion":1,"label":"docs drift","message":"ok","color":"brightgreen"}' > public/drift.json
+            else
+              printf '{"schemaVersion":1,"label":"docs drift","message":"待裁決","color":"orange"}' > public/drift.json
+            fi
+          else
+            node "$RUNNER_TEMP/doc-align/scripts/render-handbook.js" --branch "$BRANCH" --out public/index.html
+            printf '{"schemaVersion":1,"label":"docs drift","message":"未設定","color":"lightgrey"}' > public/drift.json
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deployment
+        uses: actions/deploy-pages@v4

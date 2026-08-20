@@ -213,3 +213,28 @@ test('gitlab + direct templates: DOC_ALIGN_LLM_RUNNER=agent runs bin/doc-align.j
   assert.match(gh, /if \[ "\$DOC_ALIGN_LLM_RUNNER" = "agent" \]; then\n\s+node "\$RUNNER_TEMP\/doc-align\/bin\/doc-align\.js" sync --dry-run --range "\$RANGE" --yes --quiet --out "\$RUNNER_TEMP\/report\.md"/);
   assert.match(gh, /else\n\s+node "\$RUNNER_TEMP\/doc-align\/scripts\/llm-check\.js"/, 'direct stays the default');
 });
+
+// ── nightly＋Pages 範本 ──────────────────────────────────────────────────────
+
+test('nightly templates: schedule at Taiwan midnight, incremental check, Pages artifacts, graceful without credentials', () => {
+  const gh = readFileSync(`${ROOT}ci/doc-align-nightly-github.yml`, 'utf8');
+  assert.match(gh, /cron: '0 16 \* \* \*'/, 'github cron = 16:00 UTC = 台灣午夜');
+  assert.match(gh, /workflow_dispatch/, 'github manual trigger');
+  assert.match(gh, /pages: write/, 'github pages permission');
+  assert.match(gh, /llm-check\.js" --incremental/, 'github incremental check');
+  assert.match(gh, /sync --dry-run --full --yes/, 'github full mode via agent loop');
+  assert.match(gh, /--drift-report/, 'github report wired into handbook');
+  assert.match(gh, /drift\.json/, 'github badge endpoint');
+  assert.match(gh, /LLM 憑證未設定，跳過 drift check/, 'github runs without credentials');
+  assert.match(gh, /deploy-pages/, 'github deploys Pages');
+
+  const gl = readFileSync(`${ROOT}ci/doc-align-nightly-gitlab.yml`, 'utf8');
+  assert.match(gl, /^pages:/m, 'gitlab job named pages');
+  assert.match(gl, /\$CI_PIPELINE_SOURCE == "schedule"/, 'gitlab schedule rule');
+  assert.match(gl, /Schedules/, 'gitlab instructs UI schedule creation');
+  assert.match(gl, /llm-check\.js" --incremental/, 'gitlab incremental check');
+  assert.match(gl, /--drift-report/, 'gitlab report wired into handbook');
+  assert.match(gl, /drift\.json/, 'gitlab badge endpoint');
+  assert.match(gl, /LLM 憑證未設定，跳過 drift check/, 'gitlab runs without credentials');
+  assert.match(gl, /paths:\s*\n\s*- public/, 'gitlab publishes public/');
+});

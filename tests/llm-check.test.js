@@ -173,6 +173,62 @@ test('llm-check: affected doc → one chat/completions call with doc+diff+snippe
   }
 });
 
+test('llm-check --incremental: per-doc last_verified range; unverified doc listed, not fatal', async () => {
+  const { dir, git } = initRepo();
+  const baseSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+  writeFileSync(join(dir, 'docs', 'b.md'), '# B\n\n1. g 回傳 1（src/b.py:1）\n');
+  writeFileSync(join(dir, 'docs', '.docalign.yml'),
+    '# managed by doc-align\ndocs:\n' +
+    `  - path: a.md\n    type: sequence\n    watch:\n      - src/**\n    last_verified: ${baseSha}\n` +
+    '  - path: b.md\n    type: sequence\n    watch:\n      - src/b.py\n');
+  writeFileSync(join(dir, 'src', 'a.py'), 'def f():\n    return 2\n');
+  git('add', '-A'); git('commit', '-qm', 'change');
+
+  const requests = [];
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      requests.push({ body: JSON.parse(body) });
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ choices: [{ message: { content: '- 判斷：(a) 文件過時' } }] }));
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const port = server.address().port;
+  try {
+    const outPath = join(dir, 'report.md');
+    await new Promise((resolve, reject) => execFile('node', [SCRIPT, '--incremental', '--out', outPath], {
+      cwd: dir,
+      env: { ...process.env, DOC_ALIGN_LLM_BASE_URL: `http://127.0.0.1:${port}/v1`, DOC_ALIGN_LLM_API_KEY: 'k', DOC_ALIGN_LLM_MODEL: 'mock' },
+    }, (err, _stdout, stderr) => (err ? reject(new Error(`${err.message}\n${stderr}`)) : resolve())));
+    assert.equal(requests.length, 1, 'only the verified+affected doc hits the LLM');
+    const user = requests[0].body.messages.find((m) => m.role === 'user').content;
+    assert.ok(user.includes('-    return 1') && user.includes('+    return 2'), 'per-doc last_verified..HEAD diff packed');
+    const { readFileSync } = await import('node:fs');
+    const report = readFileSync(outPath, 'utf8');
+    assert.match(report, /## docs\/a\.md/);
+    assert.match(report, /尚未驗證的文件[\s\S]*docs\/b\.md/);
+  } finally {
+    server.close();
+  }
+});
+
+test('llm-check --incremental: everything verified at HEAD → 無 drift, zero LLM', () => {
+  const { dir, git } = initRepo();
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+  writeFileSync(join(dir, 'docs', '.docalign.yml'),
+    '# managed by doc-align\ndocs:\n' +
+    `  - path: a.md\n    type: sequence\n    watch:\n      - src/**\n    last_verified: ${head}\n`);
+  git('add', '-A'); git('commit', '-qm', 'manifest');
+  // manifest commit 本身不在 src/** watch 內 → 零 LLM
+  const out = execFileSync('node', [SCRIPT, '--incremental'], {
+    cwd: dir, encoding: 'utf8', env: { ...process.env, DOC_ALIGN_LLM_BASE_URL: '', DOC_ALIGN_LLM_API_KEY: '', DOC_ALIGN_LLM_MODEL: '' },
+  });
+  assert.match(out, /無 drift/);
+  assert.match(out, /last_verified/);
+});
+
 test('llm-check: affected doc but missing LLM env → clear error, exit 1', () => {
   const { dir, git } = initRepo();
   writeFileSync(join(dir, 'src', 'a.py'), 'def f():\n    return 3\n');

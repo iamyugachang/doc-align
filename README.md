@@ -15,13 +15,27 @@
 - `.claude-plugin/` — Claude Code plugin／marketplace manifests（`/plugin` 安裝通道）
 - `tests/` — 單元與整合測試（`npm test`）
 
-三種使用方式，同一套 playbook／scripts：
+兩種使用情境，同一套 playbook／scripts：
+
+**手動 lane（有人在場裁決）**——在 feature branch 上改文件：偵測 drift、由人裁決
+「文件過時還是程式碼可疑」、更新文件，產出跟著 branch 一起 merge。本地 render 出來的
+`docs/handbook.html` 就是**這條 branch 的架構視圖**（handbook 上有 branch＋commit
+provenance 標示）。跑在哪隨你：
 
 | 方式 | 適合 | LLM 從哪來 |
 |---|---|---|
 | **當 skill 用**（Claude Code／opencode／pi／oh-my-pi…） | 平常就開著 agent 的人 | 該 agent 自己的 |
 | **獨立 CLI**（`doc-align sync --dry-run`） | 不想開 agent、或公司電腦只有內部 gateway | 內建 agent loop 直打 OpenAI-compatible endpoint |
-| **CI**（GitHub Actions／GitLab CI） | PR／MR 自動留言 | 同 CLI（direct 或 agent runner），或 opencode／claude／自帶 harness |
+
+**自動 lane（無人值守，監測＋公示）**——CI 驗證並發佈，沒有人在場所以只報告、不裁決：
+
+| 方式 | 做什麼 |
+|---|---|
+| **MR／PR check**（`ci/doc-align-direct.yml` 等） | 零成本閘門＋Mermaid lint＋（觸及 watch 時）drift 報告留言；永不 fail |
+| **Nightly＋Pages**（`ci/doc-align-nightly-*.yml`） | 每天台灣午夜驗 default branch，把 handbook＋drift 報告發佈到 GitHub／GitLab Pages——**隨時要根據文件討論專案，打開 Pages 就是 single source of truth**，且附「此刻可不可信」的 drift 狀態 |
+
+兩條 lane 形成閉環：手動 lane 在 branch 裡更新文件 → merge → nightly 驗證 main →
+Pages 更新 → 出現 drift → 回到手動 lane 裁決。
 
 ## 可選加分 skill（建議在你的 agent 裡裝，repo 不內含）
 
@@ -247,6 +261,29 @@ realpath 反查、無複製 scripts。舊版（≤0.2.0 初期）的
 OpenAI-compatible gateway）與 `DOC_ALIGN_GITLAB_TOKEN`（api scope，發 MR note）；
 內網連不到 GitHub 時另設 `DOC_ALIGN_REPO_URL` 指向 doc-align 內部鏡像。
 
+### Nightly＋Pages（single source of truth）
+
+MR check 擋在 merge 前但要快，nightly 驗 merge 後的 main 並公示——兩者互補，
+也可以只用 nightly（MR 上保留零 LLM 的機械層，LLM check 全部移到夜裡）。
+
+| 範本 | 平台 | 安裝 |
+|---|---|---|
+| `ci/doc-align-nightly-github.yml` | GitHub Actions＋GitHub Pages | 複製到 `.github/workflows/doc-align-nightly.yml`；repo Settings → Pages → Source 選 "GitHub Actions"。cron 已設 16:00 UTC＝台灣午夜 |
+| `ci/doc-align-nightly-gitlab.yml` | GitLab CI＋GitLab Pages | 複製到 `.gitlab/doc-align-nightly.yml` 並 include；**另需在 UI 建 schedule**（CI/CD → Schedules，cron `0 0 * * *`、Timezone Asia/Taipei）——GitLab 的排程只能在 UI／API 建 |
+
+憑證與 MR 版同一組 `DOC_ALIGN_LLM_*`；沒設憑證也能跑（只發佈 handbook，drift
+狀態顯示「未設定」）。每晚產出：
+
+- **Pages 首頁**＝handbook（provenance 標示 branch＋commit＋時間）＋側欄 drift
+  狀態 chip（綠＝無 drift／橘＝待裁決）＋「Drift 報告」節全文
+- `/drift-report.md` 原始報告、`/drift.json` badge——README 可貼
+  `https://img.shields.io/endpoint?url=<pages URL>/drift.json`
+
+drift check 走 `--incremental`：各文件自 manifest 的 `last_verified` 起算，所以
+**drift 在有人跑 sync 裁決前每晚都會再出現**，不會被「今天沒 commit」蓋掉；裁決後
+manifest 推進，隔天自然轉綠。手動觸發可選 full 模式（agent loop 全量重驗，需
+gateway 支援 tool calling）。
+
 同一 repo 同時推 GitHub 與內部 GitLab 時，兩份 CI 檔一起進版控即可——
 GitHub 只讀 `.github/workflows/`、GitLab 只讀 `.gitlab-ci.yml`，互不干擾。
 
@@ -303,10 +340,10 @@ job（這是 lint，不是 drift 報告）。
 | `deps-check.js` | layers 文件的分層依賴機械驗證：掃 Python／JS/TS import 圖，對照層級表＋flowchart 允許邊，列反向依賴 | `node scripts/deps-check.js --doc docs/layers.md [--py-root <dir>]` |
 | `changed-scope.js` | 依 manifest watch 算出受影響文件（增量／`--range`／`--full`） | `node scripts/changed-scope.js [--range <git range>] [--full]` |
 | `ci-gate.js` | PR 廉價閘門：`skip`、`affectedDocs`、`changedDocs`（docs 內變動的 .md） | `node scripts/ci-gate.js --base <ref>`（或 `--range`） |
-| `llm-check.js` | direct 模式 drift check：打包文件＋diff＋證據片段直打 OpenAI-compatible API | `node scripts/llm-check.js --range <git range> [--out <path>]`；env `DOC_ALIGN_LLM_BASE_URL`／`_API_KEY`／`_MODEL`［／`_MAX_CHARS`／`_TIMEOUT_MS`］ |
+| `llm-check.js` | direct 模式 drift check：打包文件＋diff＋證據片段直打 OpenAI-compatible API | `node scripts/llm-check.js (--range <git range> \| --incremental) [--out <path>]`；`--incremental`＝各文件自 `last_verified` 起算（nightly 用）；env `DOC_ALIGN_LLM_BASE_URL`／`_API_KEY`／`_MODEL`［／`_MAX_CHARS`／`_TIMEOUT_MS`］ |
 | `../bin/doc-align.js` | 獨立 CLI（agent loop；見上方「安裝（獨立 CLI）」） | `node bin/doc-align.js init\|sync [--dry-run] …`（別名 check／render／configure）；agent 零件在 `scripts/lib/agent-{loop,tools,prompt}.js`，可被自帶 harness 重用 |
 | `manifest.js` | 讀寫 `docs/.docalign.yml` | `read`／`add-doc --doc <p> --type <t> --watch <glob>...`／`set-watch`／`set-verified --doc <p> --commit <sha>` |
-| `render-handbook.js` | 單頁 HTML handbook | `node scripts/render-handbook.js [--out <path>]` |
+| `render-handbook.js` | 單頁 HTML handbook（含 branch＋commit＋時間 provenance；可嵌 drift 報告與狀態 chip） | `node scripts/render-handbook.js [--out <path>] [--branch <name>] [--drift-report <md>]` |
 | `generate-doc-set.js` | 依 JSON spec 一次寫出文件集＋manifest（init 內部使用） | `node scripts/generate-doc-set.js --spec <path\|-> [--docs-dir docs] [--force] [--commit <sha>]` |
 
 pre-commit 範例（只跑機械層、零 LLM）：

@@ -100,6 +100,27 @@ test('renderHandbook output is a complete standalone document', () => {
   assert.equal((html.match(/<\/section>/g) || []).length, 2);
 });
 
+test('renderHandbook provenance shows branch and drift meta renders chip + section + nav', () => {
+  const html = renderHandbook(DOCS, {
+    repoName: 'demo',
+    generatedAt: '2026-08-21 03:00 UTC',
+    headSha: 'abc1234',
+    branch: 'feat/x',
+    drift: { ok: false, statusText: '⚠ 有 drift 待裁決', checkedAt: '2026-08-21 03:00', html: '<p>細節</p>' },
+  });
+  assert.ok(html.includes('branch <code>feat/x</code>'));
+  assert.ok(html.includes('id="drift-report"'));
+  assert.ok(html.includes('chip chip-warn'));
+  assert.ok(html.includes('有 drift 待裁決'));
+  assert.ok(html.indexOf('id="drift-report"') < html.indexOf('id="overview"'), 'drift section first');
+});
+
+test('renderHandbook without drift meta has no chip or drift section', () => {
+  const html = renderHandbook(DOCS, { repoName: 'demo', generatedAt: '', headSha: '' });
+  assert.ok(!html.includes('drift-report'));
+  assert.ok(!html.includes('class="chip'));
+});
+
 // ── CLI end-to-end ───────────────────────────────────────────────────────────
 
 test('render-handbook.js renders manifest docs and reports skipped', () => {
@@ -118,6 +139,25 @@ test('render-handbook.js renders manifest docs and reports skipped', () => {
   const html = readFileSync(join(dir, result.out), 'utf8');
   assert.ok(html.includes('哈囉'));
   assert.ok(html.includes('Handbook'));
+});
+
+test('render-handbook.js --branch and --drift-report wire into the page and the JSON summary', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'docalign-render-'));
+  mkdirSync(join(dir, 'docs'));
+  writeFileSync(join(dir, 'docs', '.docalign.yml'),
+    '# managed by doc-align\ndocs:\n  - path: overview.md\n    type: overview\n');
+  writeFileSync(join(dir, 'docs', 'overview.md'), '# 導讀\n\n哈囉');
+  writeFileSync(join(dir, 'report.md'), '# check\n\n無 drift，文件與程式碼對齊。\n');
+  const stdout = execFileSync(
+    'node', [SCRIPT, '--branch', 'feat/nightly', '--drift-report', 'report.md'], { cwd: dir },
+  ).toString();
+  const result = JSON.parse(stdout);
+  assert.equal(result.branch, 'feat/nightly');
+  assert.deepEqual(result.drift, { ok: true });
+  const html = readFileSync(join(dir, result.out), 'utf8');
+  assert.ok(html.includes('branch <code>feat/nightly</code>'));
+  assert.ok(html.includes('chip chip-ok'));
+  assert.ok(html.includes('id="drift-report"'));
 });
 
 test('render-handbook.js exits 1 without a manifest', () => {

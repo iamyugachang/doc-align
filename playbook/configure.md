@@ -45,9 +45,20 @@
      `DOC_ALIGN_GITLAB_TOKEN`（api scope 的 project access token，發 MR note
      用）、內網連不到 GitHub 時 `DOC_ALIGN_REPO_URL` 指向 doc-align 的內部鏡像
      （並提醒需先建立該鏡像並保持同步）。
-6. **驗證指引**：提醒使用者 commit 這些 CI 檔後，各平台開一個碰到 watch 範圍的
-   測試 PR／MR 確認留言流程；未觸及 watch 的 PR 應零成本跳過。
-7. **總結**：列出寫入／建議的檔案、偵測到的平台、尚待使用者完成的設定項。
+6. **Nightly＋Pages（詢問使用者要不要）**：MR check 之外可加每天台灣午夜的
+   nightly——驗 default branch 並把 handbook＋drift 報告發佈到 Pages（single
+   source of truth）。使用者要的話：GitHub 側把
+   `<DOC_ALIGN_ROOT>/ci/doc-align-nightly-github.yml` 複製到
+   `.github/workflows/doc-align-nightly.yml`，並在設定清單加「Settings → Pages →
+   Source 選 GitHub Actions」；GitLab 側把
+   `<DOC_ALIGN_ROOT>/ci/doc-align-nightly-gitlab.yml` 複製到
+   `.gitlab/doc-align-nightly.yml` 同步驟 4 include，並在設定清單加「CI/CD →
+   Schedules 建 cron `0 0 * * *`、Timezone Asia/Taipei」（GitLab 排程只能在
+   UI／API 建）。憑證與 MR 版同一組，不需重設。非互動情境預設不裝，只提示一行。
+7. **驗證指引**：提醒使用者 commit 這些 CI 檔後，各平台開一個碰到 watch 範圍的
+   測試 PR／MR 確認留言流程；未觸及 watch 的 PR 應零成本跳過；裝了 nightly 的話
+   手動觸發一次（GitHub workflow_dispatch／GitLab Run pipeline）確認 Pages 上線。
+8. **總結**：列出寫入／建議的檔案、偵測到的平台、尚待使用者完成的設定項。
 
 ## 注意
 

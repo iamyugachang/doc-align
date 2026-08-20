@@ -314,10 +314,36 @@ export function renderHandbook(docs, meta) {
   }
   if (currentGroup !== null) navParts.push('</div>');
 
+  // drift 報告（選配）：nightly／CI 把 check 報告一併渲染進 handbook，
+  // 讓打開 Pages 的人同時看到「文件」與「文件此刻可不可信」。
+  let driftSection = '';
+  if (meta.drift) {
+    navParts.unshift(
+      '<div class="nav-group"><div class="nav-label">狀態</div>' +
+      '<a href="#drift-report">Drift 報告</a></div>',
+    );
+    driftSection =
+      '<section id="drift-report">' +
+      '<header class="sec-head"><span class="badge">drift</span>' +
+      '<h2>Drift 報告</h2>' +
+      `<code class="src">${escapeHtml(meta.drift.checkedAt ?? '')}</code></header>` +
+      `${meta.drift.html}</section>`;
+  }
+
+  // provenance：Pages 上的是 main 的 truth、本地 render 的是 branch 的 truth，
+  // 標明 branch＋commit＋時間讓讀者一眼分辨自己看的是哪個世界。
+  const provenance = [
+    meta.branch ? `branch <code>${escapeHtml(meta.branch)}</code>` : '',
+    meta.headSha ? `commit <code>${escapeHtml(meta.headSha)}</code>` : '',
+  ].filter(Boolean).join(' · ');
+
   const metaLines = [
     '由 doc-align render 生成',
-    meta.headSha ? `對齊 commit <code>${escapeHtml(meta.headSha)}</code>` : '',
+    provenance,
     escapeHtml(meta.generatedAt ?? ''),
+    meta.drift
+      ? `<a class="chip chip-${meta.drift.ok ? 'ok' : 'warn'}" href="#drift-report">${escapeHtml(meta.drift.statusText)}</a>`
+      : '',
   ].filter(Boolean).join('<br>');
 
   return `<!doctype html>
@@ -326,7 +352,10 @@ export function renderHandbook(docs, meta) {
 <meta charset="utf-8">
 <title>${escapeHtml(meta.repoName)} Handbook</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>${CSS}</style>
+<style>${CSS}
+.chip{display:inline-block;margin-top:4px;padding:1px 8px;border-radius:10px;font-size:11px;text-decoration:none}
+.chip-ok{background:#1a7f37;color:#fff}
+.chip-warn{background:#b35900;color:#fff}</style>
 </head>
 <body>
 <div class="layout">
@@ -337,7 +366,7 @@ export function renderHandbook(docs, meta) {
   <div class="meta">${metaLines}</div>
 </nav>
 <main><div class="inner">
-${sections.join('\n')}
+${driftSection}${sections.join('\n')}
 </div></main>
 </div>
 <script type="module">${MERMAID_BOOT}</script>
