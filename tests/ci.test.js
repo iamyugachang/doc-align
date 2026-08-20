@@ -227,6 +227,8 @@ test('nightly templates: schedule at Taiwan midnight, incremental check, Pages a
   assert.match(gh, /drift\.json/, 'github badge endpoint');
   assert.match(gh, /LLM 憑證未設定，跳過 drift check/, 'github runs without credentials');
   assert.match(gh, /deploy-pages/, 'github deploys Pages');
+  assert.match(gh, /DOC_ALIGN_PAGES_REFS/, 'github multi-ref whitelist');
+  assert.match(gh, /尚未 doc-align init，未發佈/, 'github skips refs without a manifest');
 
   const gl = readFileSync(`${ROOT}ci/doc-align-nightly-gitlab.yml`, 'utf8');
   assert.match(gl, /^pages:/m, 'gitlab job named pages');
@@ -237,4 +239,6 @@ test('nightly templates: schedule at Taiwan midnight, incremental check, Pages a
   assert.match(gl, /drift\.json/, 'gitlab badge endpoint');
   assert.match(gl, /LLM 憑證未設定，跳過 drift check/, 'gitlab runs without credentials');
   assert.match(gl, /paths:\s*\n\s*- public/, 'gitlab publishes public/');
+  assert.match(gl, /DOC_ALIGN_PAGES_REFS/, 'gitlab multi-ref whitelist');
+  assert.match(gl, /尚未 doc-align init，未發佈/, 'gitlab skips refs without a manifest');
 });

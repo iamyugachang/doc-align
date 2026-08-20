@@ -1,25 +1,30 @@
-# doc-align nightly — GitLab CI 範本：每天台灣午夜驗 default branch、把 handbook＋
-# drift 報告發佈到 GitLab Pages（自動 lane：Pages 是討論專案時的 single source of truth）
+# doc-align nightly — GitLab CI 範本：每天台灣午夜把選定 branch 的 handbook＋drift
+# 報告發佈到 GitLab Pages（自動 lane：Pages 是討論專案時的 single source of truth）
 #
-# 安裝：複製到目標 repo 的 .gitlab/doc-align-nightly.yml，.gitlab-ci.yml 加上：
+# 一個 project 一個 Pages 站，站內以子路徑分 branch：
+#   https://<group>.gitlab.io/<project>/<branch-slug>/      ← 各 branch 的 handbook
+#   https://<group>.gitlab.io/<project>/                    ← 索引頁（列出已發佈 branch＋drift 狀態）
+# 要發佈哪些 branch 由 Variable 白名單決定，不會每個 branch 都放。
+#
+# 安裝：複製到目標 repo 的 .gitlab/doc-align-nightly.yml（只需在 default branch 上；
+# 文件集在哪條 branch 都行，不必 merge），.gitlab-ci.yml 加上：
 #   include:
 #     - local: '.gitlab/doc-align-nightly.yml'
 # 然後在 GitLab UI 建 schedule（CI/CD → Schedules → New）：
 #   cron `0 0 * * *`、Timezone 選 Asia/Taipei、target branch 選 default branch。
 #   （GitLab 的 cron 排程只能在 UI／API 建，yml 裡的 rules 只負責「排程觸發時才跑」。）
 #
-# CI/CD Variables（與 MR 版 .gitlab/doc-align.yml 同一組，設過就不用再設）：
+# CI/CD Variables（與 MR 版 .gitlab/doc-align.yml 同一組憑證，設過就不用再設）：
+#   DOC_ALIGN_PAGES_REFS    — 空白分隔的 branch 白名單（未設＝只發 default branch）
 #   DOC_ALIGN_LLM_BASE_URL／DOC_ALIGN_LLM_API_KEY（Masked）／DOC_ALIGN_LLM_MODEL
-#   DOC_ALIGN_REPO_URL — 選配：內網連不到 GitHub 時指向 doc-align 內部鏡像
-#   （沒設憑證也能跑：只發佈 handbook，drift 狀態顯示「未設定」）
+#     （沒設憑證也能跑：只發佈 handbook，drift 狀態顯示「未設定」）
+#   DOC_ALIGN_NIGHTLY_MODE  — 選配：full＝內建 agent loop 全量重驗（需 tool calling）
+#   DOC_ALIGN_REPO_URL      — 選配：內網連不到 GitHub 時指向 doc-align 內部鏡像
 #
-# 行為與 GitHub nightly 版一致：
-#   - drift check 走 --incremental（各文件自 last_verified 起算；drift 未經 sync
-#     裁決前每晚都會再出現）。schedule variable DOC_ALIGN_NIGHTLY_MODE=full 改走
-#     內建 agent loop 全量重驗（需 gateway 支援 tool calling）。
-#   - Pages 內容：/（handbook＋provenance＋drift 狀態）、/drift-report.md、
-#     /drift.json（shields.io endpoint badge）。
-#   - drift 永不 fail job。
+# 行為與 GitHub nightly 版一致：每條 ref 各自跑 --incremental drift check（各文件自
+# last_verified 起算；drift 未經 sync 裁決前每晚都會再出現）；沒有 docs/.docalign.yml
+# 的 ref 跳過並在索引頁註記；每條 ref 產出 /<slug>/、/<slug>/drift-report.md、
+# /<slug>/drift.json（shields.io endpoint badge）；drift 永不 fail job。
 
 pages:
   stage: deploy
@@ -31,31 +36,59 @@ pages:
     GIT_DEPTH: "0"
   script:
     - set -e
-    - export DOC_ALIGN_DIR="${CI_BUILDS_DIR}/doc-align-tool"
-    - git clone --depth 1 "${DOC_ALIGN_REPO_URL:-https://github.com/iamyugachang/doc-align}" "$DOC_ALIGN_DIR"
-    - |
-      if [ -z "$DOC_ALIGN_LLM_API_KEY" ]; then
-        echo "doc-align: LLM 憑證未設定，跳過 drift check（只發佈 handbook）"
-      elif [ "$DOC_ALIGN_NIGHTLY_MODE" = "full" ]; then
-        node "$DOC_ALIGN_DIR/bin/doc-align.js" sync --dry-run --full --yes --quiet --out report.md
-      else
-        node "$DOC_ALIGN_DIR/scripts/llm-check.js" --incremental --out report.md
-      fi
+    - export TOOL="${CI_BUILDS_DIR}/doc-align-tool"
+    - git clone --depth 1 "${DOC_ALIGN_REPO_URL:-https://github.com/iamyugachang/doc-align}" "$TOOL"
+    - git fetch -q origin '+refs/heads/*:refs/remotes/origin/*'
     - mkdir -p public
     - |
-      if [ -s report.md ]; then
-        node "$DOC_ALIGN_DIR/scripts/render-handbook.js" \
-          --branch "$CI_COMMIT_REF_NAME" --drift-report report.md --out public/index.html
-        cp report.md public/drift-report.md
-        if head -c 500 report.md | grep -q "無 drift"; then
-          printf '{"schemaVersion":1,"label":"docs drift","message":"ok","color":"brightgreen"}' > public/drift.json
-        else
-          printf '{"schemaVersion":1,"label":"docs drift","message":"待裁決","color":"orange"}' > public/drift.json
+      REFS="${DOC_ALIGN_PAGES_REFS:-$CI_DEFAULT_BRANCH}"
+      INDEX_ROWS=""
+      for REF in $REFS; do
+        SLUG=$(echo "$REF" | tr '/' '-')
+        echo "=== $REF → /$SLUG/ ==="
+        git checkout -q "origin/$REF"
+        if [ ! -f docs/.docalign.yml ]; then
+          echo "skip: $REF 沒有 docs/.docalign.yml（尚未 doc-align init）"
+          INDEX_ROWS="$INDEX_ROWS<li><code>$REF</code> — 尚未 doc-align init，未發佈</li>"
+          continue
         fi
-      else
-        node "$DOC_ALIGN_DIR/scripts/render-handbook.js" --branch "$CI_COMMIT_REF_NAME" --out public/index.html
-        printf '{"schemaVersion":1,"label":"docs drift","message":"未設定","color":"lightgrey"}' > public/drift.json
-      fi
+        mkdir -p "public/$SLUG"
+        REPORT="report-$SLUG.md"
+        if [ -z "$DOC_ALIGN_LLM_API_KEY" ]; then
+          echo "doc-align: LLM 憑證未設定，跳過 drift check（只發佈 handbook）"
+          rm -f "$REPORT"
+        elif [ "$DOC_ALIGN_NIGHTLY_MODE" = "full" ]; then
+          node "$TOOL/bin/doc-align.js" sync --dry-run --full --yes --quiet --out "$REPORT"
+        else
+          node "$TOOL/scripts/llm-check.js" --incremental --out "$REPORT"
+        fi
+        if [ -s "$REPORT" ]; then
+          node "$TOOL/scripts/render-handbook.js" --branch "$REF" --drift-report "$REPORT" --out "public/$SLUG/index.html"
+          cp "$REPORT" "public/$SLUG/drift-report.md"
+          if head -c 500 "$REPORT" | grep -q "無 drift"; then
+            printf '{"schemaVersion":1,"label":"docs drift","message":"ok","color":"brightgreen"}' > "public/$SLUG/drift.json"
+            STATUS="✅ 無 drift"
+          else
+            printf '{"schemaVersion":1,"label":"docs drift","message":"待裁決","color":"orange"}' > "public/$SLUG/drift.json"
+            STATUS="⚠️ 有 drift 待裁決"
+          fi
+        else
+          node "$TOOL/scripts/render-handbook.js" --branch "$REF" --out "public/$SLUG/index.html"
+          printf '{"schemaVersion":1,"label":"docs drift","message":"未設定","color":"lightgrey"}' > "public/$SLUG/drift.json"
+          STATUS="drift check 未設定"
+        fi
+        INDEX_ROWS="$INDEX_ROWS<li><a href=\"$SLUG/\"><code>$REF</code></a> — $STATUS</li>"
+      done
+      UPDATED=$(date -u '+%Y-%m-%d %H:%M UTC')
+      cat > public/index.html <<HTML
+      <!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
+      <title>$CI_PROJECT_NAME — doc-align handbooks</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>body{font-family:system-ui,sans-serif;max-width:640px;margin:3rem auto;padding:0 1rem;line-height:1.7}code{background:#eee;padding:1px 5px;border-radius:4px}</style>
+      </head><body><h1>$CI_PROJECT_NAME handbooks</h1>
+      <p>doc-align nightly 發佈的各 branch 文件集：</p><ul>$INDEX_ROWS</ul>
+      <p><small>更新於 $UPDATED</small></p></body></html>
+      HTML
   artifacts:
     paths:
       - public

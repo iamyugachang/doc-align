@@ -263,8 +263,16 @@ OpenAI-compatible gateway）與 `DOC_ALIGN_GITLAB_TOKEN`（api scope，發 MR no
 
 ### Nightly＋Pages（single source of truth）
 
-MR check 擋在 merge 前但要快，nightly 驗 merge 後的 main 並公示——兩者互補，
+MR check 擋在 merge 前但要快，nightly 驗證並公示——兩者互補，
 也可以只用 nightly（MR 上保留零 LLM 的機械層，LLM check 全部移到夜裡）。
+
+一個 repo 一個 Pages 站，但**站內以子路徑分 branch**——要發佈哪些 branch 由
+Variable `DOC_ALIGN_PAGES_REFS`（空白分隔白名單，未設＝只發 default branch）決定，
+文件集不必 merge 進 main（main 只需要 workflow 檔本身）：
+
+    https://<user>.github.io/<repo>/                ← 索引頁（各 branch＋drift 狀態）
+    https://<user>.github.io/<repo>/<branch-slug>/  ← 該 branch 的 handbook
+    https://<user>.github.io/<repo>/<branch-slug>/drift.json  ← badge endpoint
 
 | 範本 | 平台 | 安裝 |
 |---|---|---|
