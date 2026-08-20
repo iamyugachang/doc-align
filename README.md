@@ -296,6 +296,16 @@ drift check 走 `--incremental`：各文件自 manifest 的 `last_verified` 起�
 manifest 推進，隔天自然轉綠。手動觸發可選 full 模式（agent loop 全量重驗，需
 gateway 支援 tool calling）。
 
+**分階段採用（LLM 憑證可以晚點再給）**：階段 1 零憑證——裝好範本後手動觸發（GitLab
+另可設 `DOC_ALIGN_PAGES_ON_PUSH=true` 讓 docs/ 有變動的 push 自動發佈），CI 只做零
+LLM 的 render（確定性，跟本地 skill 生的 handbook 相同）；手動 lane 在本地 sync、
+push 後 Pages 即更新。階段 2 拿到憑證後設 `DOC_ALIGN_LLM_*`＋建 schedule，yml 不用改。
+
+**自建 GitLab**：instance 需由 admin 啟用 Pages（`pages_external_url`）——專案側欄
+有 Deploy → Pages 即可用，網址也在那頁；沒開就先用 job artifact 過渡。內網連不到
+jsdelivr CDN 時設 `DOC_ALIGN_MERMAID_URL` 指向內部鏡像的 mermaid ESM 檔（CLI 對應
+`render --mermaid-url`），否則圖以原始碼顯示、其他內容不受影響。
+
 同一 repo 同時推 GitHub 與內部 GitLab 時，兩份 CI 檔一起進版控即可——
 GitHub 只讀 `.github/workflows/`、GitLab 只讀 `.gitlab-ci.yml`，互不干擾。
 
@@ -382,7 +392,7 @@ pre-commit 範例（只跑機械層、零 LLM）：
 - 兩個可選的外部來源，公司政策不允許就避開：(1) CI 的 `opencode`／`claude` runner 會
   `curl | bash` 或 `npm install -g` 安裝 agent CLI——用 `direct`／`agent` runner 就完全不需要；
   (2) `render` 產出的 handbook 在瀏覽器端從 jsdelivr CDN 載入 mermaid.js 畫圖（離線時顯示原始碼），
-  不影響 CLI／CI 本身。
+  不影響 CLI／CI 本身；內網可設 `DOC_ALIGN_MERMAID_URL`（或 `render --mermaid-url`）改指內部鏡像。
 - 內網拉不到 GitHub：clone 一份到內部 GitLab 當鏡像，CI 設 `DOC_ALIGN_REPO_URL`，CLI 直接 clone
   鏡像後 `npm link`；整個工具就是這個 repo，沒有其他下載步驟。
 

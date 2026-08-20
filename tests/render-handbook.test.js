@@ -115,6 +115,16 @@ test('renderHandbook provenance shows branch and drift meta renders chip + secti
   assert.ok(html.indexOf('id="drift-report"') < html.indexOf('id="overview"'), 'drift section first');
 });
 
+test('renderHandbook mermaid URL defaults to jsdelivr and is overridable for intranet mirrors', () => {
+  const dflt = renderHandbook(DOCS, { repoName: 'demo', generatedAt: '', headSha: '' });
+  assert.ok(dflt.includes('import("https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs")'));
+  const mirrored = renderHandbook(DOCS, {
+    repoName: 'demo', generatedAt: '', headSha: '', mermaidUrl: 'https://npm.internal/mermaid.mjs',
+  });
+  assert.ok(mirrored.includes('import("https://npm.internal/mermaid.mjs")'));
+  assert.ok(!mirrored.includes('jsdelivr'));
+});
+
 test('renderHandbook without drift meta has no chip or drift section', () => {
   const html = renderHandbook(DOCS, { repoName: 'demo', generatedAt: '', headSha: '' });
   assert.ok(!html.includes('drift-report'));

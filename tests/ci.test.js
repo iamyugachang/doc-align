@@ -241,4 +241,7 @@ test('nightly templates: schedule at Taiwan midnight, incremental check, Pages a
   assert.match(gl, /paths:\s*\n\s*- public/, 'gitlab publishes public/');
   assert.match(gl, /DOC_ALIGN_PAGES_REFS/, 'gitlab multi-ref whitelist');
   assert.match(gl, /尚未 doc-align init，未發佈/, 'gitlab skips refs without a manifest');
+  assert.match(gl, /\$DOC_ALIGN_PAGES_ON_PUSH == "true"/, 'gitlab stage-1 push trigger is opt-in');
+  assert.match(gl, /pages_external_url/, 'gitlab documents the self-hosted Pages prerequisite');
+  assert.match(gl, /DOC_ALIGN_MERMAID_URL/, 'gitlab documents the intranet mermaid mirror');
 });

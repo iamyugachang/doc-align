@@ -6,12 +6,25 @@
 #   https://<group>.gitlab.io/<project>/                    ← 索引頁（列出已發佈 branch＋drift 狀態）
 # 要發佈哪些 branch 由 Variable 白名單決定，不會每個 branch 都放。
 #
+# 自建（self-hosted）GitLab 前提：instance 管理員需已啟用 GitLab Pages
+# （gitlab.rb 的 pages_external_url）。專案側欄看得到 Deploy → Pages 就是有開；
+# 沒開就請 admin 開，或先用 job artifact（下載 public/ 的 handbook 本地開）過渡。
+# Pages 網址在 Deploy → Pages 頁面上，自建 instance 的 domain 依 admin 設定而異。
+#
 # 安裝：複製到目標 repo 的 .gitlab/doc-align-nightly.yml（只需在 default branch 上；
 # 文件集在哪條 branch 都行，不必 merge），.gitlab-ci.yml 加上：
 #   include:
 #     - local: '.gitlab/doc-align-nightly.yml'
-# 然後在 GitLab UI 建 schedule（CI/CD → Schedules → New）：
-#   cron `0 0 * * *`、Timezone 選 Asia/Taipei、target branch 選 default branch。
+#
+# 分階段採用（LLM 憑證可以晚點再給）：
+#   階段 1｜零憑證：什麼都不設。手動 Run pipeline（或設 DOC_ALIGN_PAGES_ON_PUSH=true
+#     讓 docs/ 有變動的 push 自動觸發）→ 各白名單 branch 的 docs/ 重新 render（零
+#     LLM、確定性，跟你本地 opencode／pi 生的 handbook 相同）發佈到 Pages，drift
+#     狀態顯示「未設定」。手動 lane 照常在本地跑 sync，push 後 Pages 就更新。
+#   階段 2｜接 nightly：拿到 OpenAI-compatible 憑證後設三個 DOC_ALIGN_LLM_*，
+#     並在 UI 建 schedule（CI/CD → Schedules → New：cron `0 0 * * *`、Timezone
+#     Asia/Taipei、target branch 選 default branch）→ 每晚多跑 drift check，
+#     Pages 上出現真的綠／橘狀態。yml 不用改。
 #   （GitLab 的 cron 排程只能在 UI／API 建，yml 裡的 rules 只負責「排程觸發時才跑」。）
 #
 # CI/CD Variables（與 MR 版 .gitlab/doc-align.yml 同一組憑證，設過就不用再設）：
@@ -19,7 +32,10 @@
 #   DOC_ALIGN_LLM_BASE_URL／DOC_ALIGN_LLM_API_KEY（Masked）／DOC_ALIGN_LLM_MODEL
 #     （沒設憑證也能跑：只發佈 handbook，drift 狀態顯示「未設定」）
 #   DOC_ALIGN_NIGHTLY_MODE  — 選配：full＝內建 agent loop 全量重驗（需 tool calling）
+#   DOC_ALIGN_PAGES_ON_PUSH — 選配：true＝docs/ 有變動的 push 也觸發發佈（階段 1 用）
 #   DOC_ALIGN_REPO_URL      — 選配：內網連不到 GitHub 時指向 doc-align 內部鏡像
+#   DOC_ALIGN_MERMAID_URL   — 選配：內網連不到 jsdelivr CDN 時，指向內部鏡像的
+#                             mermaid ESM 檔（load 失敗時圖以原始碼顯示，內容不受影響）
 #
 # 行為與 GitHub nightly 版一致：每條 ref 各自跑 --incremental drift check（各文件自
 # last_verified 起算；drift 未經 sync 裁決前每晚都會再出現）；沒有 docs/.docalign.yml
@@ -32,6 +48,9 @@ pages:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "web"   # 手動跑一次也可以（Run pipeline）
+    - if: $CI_PIPELINE_SOURCE == "push" && $DOC_ALIGN_PAGES_ON_PUSH == "true"
+      changes:                            # 階段 1：docs/ 有變動的 push 自動重新發佈
+        - docs/**/*
   variables:
     GIT_DEPTH: "0"
   script:

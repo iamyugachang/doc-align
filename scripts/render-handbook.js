@@ -7,6 +7,8 @@
 //             CI detached HEAD 時請顯式傳入，如 $CI_COMMIT_REF_NAME／$GITHUB_REF_NAME）。
 //   --drift-report：把 check 產出的 drift 報告（markdown）一併渲染進 handbook，
 //             側欄出現狀態 chip（無 drift＝綠／有 drift 待裁決＝橘）＋「Drift 報告」節。
+//   --mermaid-url（或 env DOC_ALIGN_MERMAID_URL）：內網連不到 jsdelivr CDN 時
+//             改指內部鏡像的 mermaid ESM 檔；載入失敗圖以原始碼顯示。
 // 輸出 JSON 摘要到 stdout：{ ok, out, sections, skipped, branch, drift }。
 //
 // 純機械步驟：讀 manifest → 讀各文件 md → markdown-html.js 轉換 → 寫檔。
@@ -21,7 +23,11 @@ import { convertMarkdown, renderHandbook } from './lib/markdown-html.js';
 
 function parseArgs(argv) {
   const opts = {
-    manifest: 'docs/.docalign.yml', out: 'docs/handbook.html', branch: null, driftReport: null,
+    manifest: 'docs/.docalign.yml',
+    out: 'docs/handbook.html',
+    branch: null,
+    driftReport: null,
+    mermaidUrl: process.env.DOC_ALIGN_MERMAID_URL || null,
   };
   for (let i = 2; i < argv.length; i += 1) {
     if (argv[i] === '--out' && argv[i + 1]) {
@@ -32,6 +38,9 @@ function parseArgs(argv) {
       i += 1;
     } else if (argv[i] === '--drift-report' && argv[i + 1]) {
       opts.driftReport = argv[i + 1];
+      i += 1;
+    } else if (argv[i] === '--mermaid-url' && argv[i + 1]) {
+      opts.mermaidUrl = argv[i + 1];
       i += 1;
     } else {
       console.error(`unknown argument: ${argv[i]}`);
@@ -98,6 +107,7 @@ const html = renderHandbook(docs, {
   headSha,
   branch,
   drift,
+  mermaidUrl: opts.mermaidUrl,
 });
 
 writeFileSync(opts.out, html);

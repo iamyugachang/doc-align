@@ -68,6 +68,7 @@ jobs:
           DOC_ALIGN_LLM_API_KEY: ${{ secrets.DOC_ALIGN_LLM_API_KEY }}
           DOC_ALIGN_LLM_BASE_URL: ${{ vars.DOC_ALIGN_LLM_BASE_URL }}
           DOC_ALIGN_LLM_MODEL: ${{ vars.DOC_ALIGN_LLM_MODEL }}
+          DOC_ALIGN_MERMAID_URL: ${{ vars.DOC_ALIGN_MERMAID_URL }}
           REFS: ${{ vars.DOC_ALIGN_PAGES_REFS || github.event.repository.default_branch }}
           MODE: ${{ inputs.mode || 'incremental' }}
         run: |

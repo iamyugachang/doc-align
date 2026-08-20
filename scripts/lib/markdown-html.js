@@ -267,12 +267,16 @@ tr:last-child td { border-bottom:none; }
 }
 `;
 
+// 內網連不到公網 CDN 時，以 meta.mermaidUrl（CLI --mermaid-url／env DOC_ALIGN_MERMAID_URL）
+// 指向內部鏡像（npm registry proxy 或自架靜態檔）；載入失敗時圖以原始碼顯示，不影響其他內容。
+const DEFAULT_MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
 const MERMAID_BOOT = `
   const dark = document.documentElement.dataset.theme === "dark" ||
     (document.documentElement.dataset.theme !== "light" &&
      window.matchMedia("(prefers-color-scheme: dark)").matches);
   try {
-    const { default: mermaid } = await import("https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs");
+    const { default: mermaid } = await import(__MERMAID_URL__);
     mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "default" });
   } catch (e) {
     document.querySelectorAll("pre.mermaid").forEach((el) => {
@@ -369,7 +373,7 @@ export function renderHandbook(docs, meta) {
 ${driftSection}${sections.join('\n')}
 </div></main>
 </div>
-<script type="module">${MERMAID_BOOT}</script>
+<script type="module">${MERMAID_BOOT.replace('__MERMAID_URL__', JSON.stringify(meta.mermaidUrl || DEFAULT_MERMAID_URL))}</script>
 </body>
 </html>
 `;
