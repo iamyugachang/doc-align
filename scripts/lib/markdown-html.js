@@ -380,7 +380,7 @@ const MERMAID_BOOT = `
 
     // 拖曳平移＋雙指 pinch 縮放（觸控）
     const pointers = new Map();
-    let drag = null; let pinchDist = 0;
+    let drag = null; let pinchDist = 0; let pressAt = null; let pressOnSvg = false;
     const dist = () => {
       const [a, b] = [...pointers.values()];
       return Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -390,6 +390,9 @@ const MERMAID_BOOT = `
       stage.setPointerCapture(e.pointerId);
       if (pointers.size === 1) {
         drag = { x: e.clientX - tx, y: e.clientY - ty };
+        pressAt = [e.clientX, e.clientY];
+        // click 事件會因 pointer capture 被重定向到 stage，svg 判定要在 pointerdown 做
+        pressOnSvg = !!(e.target.closest && e.target.closest("svg"));
         stage.classList.add("dragging");
       } else if (pointers.size === 2) {
         drag = null; pinchDist = dist();
@@ -415,7 +418,14 @@ const MERMAID_BOOT = `
     };
     stage.addEventListener("pointerup", endPointer);
     stage.addEventListener("pointercancel", endPointer);
+    // 單擊圖外空白＝關閉（位移 <6px 才算點擊，拖曳平移不誤關）；雙擊放大只在圖上。
+    stage.addEventListener("click", (e) => {
+      if (pressOnSvg) return;
+      if (pressAt && Math.hypot(e.clientX - pressAt[0], e.clientY - pressAt[1]) > 6) return;
+      close();
+    });
     stage.addEventListener("dblclick", (e) => {
+      if (!pressOnSvg) return;
       const r = stage.getBoundingClientRect();
       zoomAt(e.clientX - r.left, e.clientY - r.top, 1.6);
     });
