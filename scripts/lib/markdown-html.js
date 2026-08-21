@@ -524,7 +524,7 @@ export function renderHandbook(docs, meta) {
 .dz-stage{flex:1;overflow:hidden;position:relative;cursor:grab}
 .dz-stage.dragging{cursor:grabbing}
 .dz-inner{position:absolute;left:0;top:0;transform-origin:0 0}
-.dz-inner svg{display:block;max-width:none!important;background:#fff;border-radius:8px;padding:14px;user-select:none}
+.dz-inner svg{display:block;max-width:none!important;background:var(--panel);border-radius:8px;padding:14px;user-select:none}
 .chip{display:inline-block;margin-top:4px;padding:1px 8px;border-radius:10px;font-size:11px;text-decoration:none}
 .chip-ok{background:#1a7f37;color:#fff}
 .chip-warn{background:#b35900;color:#fff}</style>
