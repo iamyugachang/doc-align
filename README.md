@@ -182,13 +182,80 @@ clone 到固定位置，`export DOC_ALIGN_ROOT=/abs/path/doc-align`，
 `--dangerously-skip-permissions`），要先對 doc-align 目錄放行，否則第一步讀
 playbook 就會被擋。
 
-**公司電腦 checklist**：(1) Node ≥ 18＋git；(2) 能 clone doc-align——內網連不到 GitHub
-就先建內部鏡像（CI 的 `DOC_ALIGN_REPO_URL` 同一個）；(3) clone 到對應 agent 的
-skills 目錄（或 `DOC_ALIGN_ROOT`）；(4) agent 的專案外讀取權限放行；(5) LLM 走內部 gateway 的 provider
-設定；(6) **`doc-align doctor`**——驗 Node／git／env／gateway 的 chat 與 tools 相容性，
-每項附排查提示（proxy／自簽憑證／BASE_URL 路徑…），並直接告訴你 direct 與 agent
-兩種模式哪個可用；(7) 在目標 repo 跑一次 `doc-align render`（零 LLM）確認整條路通，
-再跑 `sync --dry-run`。
+**公司電腦**：完整流程見下方「[公司內網部署（step by step）](#公司內網部署step-by-step)」。
+
+## 公司內網部署（step by step）
+
+從零到 GitLab Pages 的完整順序。前提：內網機器有 Node ≥ 18＋git。
+
+**STEP 0｜把東西帶進內網**（在能連公網的機器準備；內網本來就 clone 得到 GitHub 就跳過）
+
+    git clone https://github.com/iamyugachang/doc-align        # 之後推到內部 GitLab 當鏡像
+    curl -L -o mermaid.min.js https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js
+    # mermaid 也可在內網從內部 npm registry 取：npm pack mermaid → 解開拿 dist/mermaid.min.js
+
+**STEP 1｜裝工具**（內網）
+
+    git clone <內部鏡像>/doc-align && cd doc-align && npm link
+    doc-align --help          # 出現用法說明就裝好了
+
+    # 想在 Claude Code／opencode／pi 裡當 skill 用（可跟 CLI 並存）：
+    git clone <內部鏡像>/doc-align ~/.claude/skills/doc-align
+
+**STEP 2｜設 LLM 並體檢**（還沒有 key → 跳到 STEP 3，走零憑證路線）
+
+    mkdir -p ~/.config/doc-align
+    cat > ~/.config/doc-align/env <<'EOF'
+    DOC_ALIGN_LLM_BASE_URL=https://你的內部gateway/v1
+    DOC_ALIGN_LLM_API_KEY=xxx
+    DOC_ALIGN_LLM_MODEL=模型id
+    EOF
+    chmod 600 ~/.config/doc-align/env
+    doc-align doctor          # 逐項體檢；哪裡❌就照後面附的提示排查（proxy／憑證／路徑）
+                              # 「tools 被拒」＝agent 模式不可用，check 改跑 --direct，其他照常
+
+**STEP 3｜目標 repo：手動 lane 跑起來**
+
+    cd <目標 repo>
+    cp <STEP 0 的 mermaid.min.js> docs/mermaid.min.js   # 圖離線渲染的關鍵，放一次就好
+    doc-align render          # repo 已有文件集時：零 LLM，先驗整條路通
+    # 瀏覽器開 docs/handbook.html：圖有畫出來、側欄有 branch＋commit 就對了
+
+    doc-align init            # repo 還沒有文件集才跑（需 STEP 2 的 LLM；或在有 LLM 的
+                              # 環境如 Claude Code 裡跑 /doc-align init 再帶進來）
+    doc-align sync --dry-run  # 日常：看 drift 報告 → 裁決 → doc-align sync 更新文件
+
+**STEP 4｜接 GitLab Pages（零憑證即可）**
+
+前提：instance 有開 Pages——專案側欄看得到 **Deploy → Pages** 即可；沒有就請 admin
+開 `pages_external_url`，開通前可先用 job artifact（下載 `public/` 本地開）過渡。
+
+    cp <doc-align>/ci/doc-align-nightly-gitlab.yml <目標 repo>/.gitlab/doc-align-nightly.yml
+    # .gitlab-ci.yml 加上（沒有這個檔就建一個只含這段的）：
+    #   include:
+    #     - local: '.gitlab/doc-align-nightly.yml'
+
+GitLab UI → Settings → CI/CD → Variables：
+
+| Variable | 值 |
+|---|---|
+| `DOC_ALIGN_REPO_URL` | 內部鏡像的 clone URL |
+| `DOC_ALIGN_PAGES_REFS` | 要發佈的 branch 白名單（空白分隔；不設＝default branch） |
+| `DOC_ALIGN_PAGES_ON_PUSH` | `true`——docs/ 有變動的 push 自動重新發佈 |
+
+commit＋push 後 UI 手動 **Build → Pipelines → Run pipeline** 跑一次，成功後
+**Deploy → Pages** 頁面就有網址。此時 drift 狀態顯示「未設定」＝正常，handbook
+照常可看；本地 sync → push → Pages 自動更新，手動 lane 閉環完成。
+
+**STEP 5｜拿到 key 後升級 nightly**（yml 不用改）
+
+    # Variables 再加三個（與 STEP 2 同值）：
+    #   DOC_ALIGN_LLM_BASE_URL／DOC_ALIGN_LLM_API_KEY（勾 Masked）／DOC_ALIGN_LLM_MODEL
+    # UI → Build → Pipeline schedules → New：cron `0 0 * * *`、Timezone Asia/Taipei、
+    #   target branch＝default branch
+    # 手動 Run pipeline 驗證一次：Pages 的 drift 狀態出現真的 ✅ 綠／⚠ 橘
+
+卡住時把 `doc-align doctor` 的輸出或 CI job log 整段貼出來排查即可。
 
 ## 用法
 
