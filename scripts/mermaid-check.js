@@ -88,10 +88,12 @@ function flowchartStats(lines) {
   const idRe = /^[A-Za-z_][\w.-]*/;
   const clean = (tok) => { const m = tok.trim().match(idRe); return m ? m[0] : null; };
   for (const raw of lines.slice(1)) {
-    const line = raw.replace(/%%.*$/, '').trim();
+    let line = raw.replace(/%%.*$/, '').trim();
     if (!line || /^(classDef|class|style|linkStyle|click|direction)\b/.test(line)) continue;
     if (/^subgraph\b/.test(line)) { subgraphs += 1; continue; }
     if (line === 'end') continue;
+    // 先遮罩引號標籤：標籤文字裡的 `--`（CLI 旗標如 --dry-run）不是邊，不能參與拆分
+    line = line.replace(/"[^"]*"/g, '""');
     // 邊：拆成節點片段
     const parts = line.split(/\s*(?:-{2,}>?|={2,}>?|-\.+->?|--[^-]*-->|==[^=]*==>|-\.[^.]*\.->)\s*(?:\|[^|]*\|\s*)?/);
     if (parts.length > 1) edges += parts.length - 1;

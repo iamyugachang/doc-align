@@ -69,7 +69,12 @@ for (const entry of manifest.docs) {
     skipped.push(entry.path);
     continue;
   }
-  docs.push({ path: entry.path, type: entry.type, md: readFileSync(filePath, 'utf8') });
+  docs.push({
+    path: entry.path,
+    type: entry.type,
+    md: readFileSync(filePath, 'utf8'),
+    lastVerified: entry.last_verified ? entry.last_verified.slice(0, 7) : null,
+  });
 }
 
 let headSha = '';

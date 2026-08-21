@@ -55,16 +55,18 @@ C4 管「畫哪一層」，本檔管「怎麼畫得清楚、什麼時候該拆�
 | 角色 | 寫法 |
 |---|---|
 | 焦點（1–2 個） | `classDef focal stroke-width:3px;` ＋ `class X focal` |
-| 儲存／狀態（DB、cache、queue） | 圓柱 `db[(PostgreSQL)]`；queue 用 `q[[Kafka topic]]` |
-| 外部系統／第三方 | 放進 `subgraph ext[外部]`，或 `classDef external stroke-dasharray:4 3;` |
-| 使用者／輸入 | `u([使用者])`（stadium） |
+| 儲存／狀態（DB、cache、queue） | 圓柱 `db[("PostgreSQL")]`；queue 用 `q[["Kafka topic"]]` |
+| 外部系統／第三方 | 放進 `subgraph ext["外部"]`，或 `classDef external stroke-dasharray:4 3;` |
+| 使用者／輸入 | `u(["使用者"])`（stadium） |
 | 可選／非同步 | 虛線邊 `-.->`，標 `async`／`選配` |
 | 安全／信任邊界 | `subgraph` 命名為邊界（`subgraph vpc[私有網段]`），被禁止的路徑**停在邊界外**，不要畫進去 |
-| 決策 | 菱形 `{條件？}`，每條出邊標 `是`／`否`或條件文字，**必有預設分支** |
-| 入口／結束 | `((開始))`、`((結束))` 只在 decision 用 |
+| 決策 | 菱形 `{"條件？"}`，每條出邊標 `是`／`否`或條件文字，**必有預設分支** |
+| 入口／結束 | `(("開始"))`、`(("結束"))` 只在 decision 用 |
 
 - 不同角色用**形狀**區分，不是全部矩形；用到兩種以上樣式時，圖下方一行文字當圖例。
 - 顏色只能是焦點；不要用紅綠表示成功失敗（用文字 `PASS`／`FAIL`）。
+- **節點標籤一律加雙引號**（`x["標籤"]`）：CJK 文字緊鄰形狀括號會觸發 mermaid-check
+  的混寬括號檢查；標籤含 `--`（CLI 旗標）或特殊符號時引號也是唯一安全寫法。
 
 ## 5. 語意模式片語（看到這種行為，就這樣畫）
 

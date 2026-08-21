@@ -129,6 +129,16 @@ test('renderHandbook mermaid URL defaults to jsdelivr and is overridable for int
   assert.ok(dflt.includes('mermaid.run('));
 });
 
+test('renderHandbook section header shows per-doc verification baseline', () => {
+  const docs = [
+    { path: 'overview.md', type: 'overview', md: '# 導讀', lastVerified: 'abc1234' },
+    { path: 'a.md', type: 'sequence', md: '# A' },
+  ];
+  const html = renderHandbook(docs, { repoName: 'demo', generatedAt: '', headSha: '' });
+  assert.ok(html.includes('驗證於 abc1234'));
+  assert.ok(html.includes('尚未驗證'));
+});
+
 test('renderHandbook without drift meta has no chip or drift section', () => {
   const html = renderHandbook(DOCS, { repoName: 'demo', generatedAt: '', headSha: '' });
   assert.ok(!html.includes('drift-report'));

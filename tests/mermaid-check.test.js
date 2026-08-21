@@ -77,6 +77,14 @@ test('CLI exits 1 when a file contains an invalid block', () => {
 
 // ── complexity budget（diagram-design 換算）──────────────────────────────────
 
+test('checkBudget does not count `--` inside quoted labels as edges (CLI flags)', async () => {
+  const { checkBudget } = await import('../scripts/mermaid-check.js');
+  const cli = 'flowchart TD\n  a["sync --dry-run --range X"] --> b["check --full"]\n  b --> c["render"]\n';
+  const r = checkBudget(cli);
+  assert.deepEqual(r.stats, { nodes: 3, edges: 2, subgraphs: 0 }, 'flags in labels are not edges/nodes');
+  assert.deepEqual(r.warnings, []);
+});
+
 test('checkBudget counts flowchart nodes/edges/subgraphs and warns over budget; ER is exempt', async () => {
   const { checkBudget } = await import('../scripts/mermaid-check.js');
   const small = 'flowchart TD\n  a[A] --> b[B]\n  b -->|x| c\n  subgraph s\n    c --> d\n  end\n';

@@ -313,11 +313,16 @@ export function renderHandbook(docs, meta) {
     const anchor = anchorFor(d.path);
     const title = docTitle(d.md, d.path);
     const body = convertMarkdown(d.md.replace(/^#\s+.*$/m, ''), linkMap);
+    // 驗證基準：manifest 的 last_verified——行號引用的信任邊界，讓讀者知道
+    // 「這份文件對齊到哪個 commit」，而不是把生成當下的行號當永遠有效。
+    const verified = d.lastVerified
+      ? `<code class="src ver">驗證於 ${escapeHtml(d.lastVerified)}</code>`
+      : '<code class="src ver">尚未驗證</code>';
     return (
       `<section id="${anchor}">` +
       `<header class="sec-head"><span class="badge">${d.type}</span>` +
       `<h2>${escapeHtml(title)}</h2>` +
-      `<code class="src">docs/${d.path}</code></header>` +
+      `<code class="src">docs/${d.path}</code>${verified}</header>` +
       `${body}</section>`
     );
   });
@@ -374,6 +379,7 @@ export function renderHandbook(docs, meta) {
 <title>${escapeHtml(meta.repoName)} Handbook</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>${CSS}
+.sec-head .ver{opacity:.65;margin-left:6px}
 .chip{display:inline-block;margin-top:4px;padding:1px 8px;border-radius:10px;font-size:11px;text-decoration:none}
 .chip-ok{background:#1a7f37;color:#fff}
 .chip-warn{background:#b35900;color:#fff}</style>

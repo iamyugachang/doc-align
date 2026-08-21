@@ -43,8 +43,10 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
      schema）；衍生關聯（如 dbt models、views）用 markdown 表格記
      name/location/materialization/producer，欄位級細節由對應 flow 文件的 watch 涵蓋。
    - overview：一律適用。內容為系統目的一段、domain 詞彙表（每個核心概念一行
-     定義）、文件導讀順序。因為要總結其他文件的內容，生成順序放在最後（其他文件
-     都完成後才寫 overview）。
+     定義）、文件導讀順序；repo 的錯誤處理若有一致的模式（例如「證據收集 fail-open、
+     結果聲明 fail-closed、執行層 never-raise」這種三分法），加一段「錯誤處理哲學」
+     把散在各 flow 的規則總綱化——沒有一致模式就不硬寫。因為要總結其他文件的內容，
+     生成順序放在最後（其他文件都完成後才寫 overview）。
 
    以下七種為**擴充類型**，同樣逐一判斷並把決策記入報告；判準是「code 裡有沒有
    可對照的真相」，沒有就跳過、不硬寫：
@@ -66,11 +68,18 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
      repo 不適用，記明理由。
    - deployment：repo 內有部署定義（docker-compose、k8s manifests、terraform、
      Procfile、CI deploy job）時適用；描述服務／容器、網段與信任邊界、對外入口、
-     外部依賴。沒有部署定義的函式庫型 repo 不適用。
+     外部依賴。沒有部署定義的函式庫型 repo 不適用。**出貨用的範本／樣板檔不算**
+     （repo 提供給別人複製的 CI 範本、docker-compose 範例——它們是產品內容，
+     不是本 repo 自身的部署定義）。
    - permissions：code 有角色／權限模型（RBAC 定義、permission decorator／
-     middleware、policy 表）時適用；以表格呈現角色×資源×動作。
+     middleware、policy 表）時適用；以表格呈現角色×資源×動作。**agent／工具
+     閘門也算**（如「哪個模式開放哪些工具、寫檔限制在哪些路徑」的 allowlist
+     邏輯）——只要 code 裡有可對照的 policy 真相即適用，角色欄換成模式即可。
    - api：repo 對外提供 HTTP／RPC／CLI 介面且 endpoint 數量值得列目錄（≥5）時
-     適用；以表格列 method／path／handler／auth／對應 flow 文件。
+     適用；以表格列 method／path／handler／auth／對應 flow 文件。CLI repo 上
+     api 與 use-case 天然重疊（入口＝子命令）：**api 管精確目錄**（參數、旗標、
+     對應 handler），**use-case 管情境敘事**（誰、為了什麼、走到哪個 flow），
+     兩份互相引用、不重複內容。
 
    **不適用就不寫**（實測教訓）：沒有 DB／migrations／ORM model 的 repo 不得硬寫
    db-schema（把 config dict 或 DataFrame 欄位畫成 erDiagram 是錯的）；沒有自定義
@@ -160,7 +169,16 @@ manifest 的 `path` 一律相對於 `docs/`；檔案操作使用 `docs/<path>`�
      定義／router 所在。
    - `--repair` 模式：從既有文件內容推導 type 與 watch。
 8. **自檢**：先用 writing.md 第 7 節與 diagrams.md 第 7 節的 checklist 逐份過一遍
-   （讀者視角、圖的層級與標註、remove test、預算、重述、混象限、術語），再依 check playbook 以全量模式驗證每份剛完成的文件；發現自己寫錯的
+   （讀者視角、圖的層級與標註、remove test、預算、重述、混象限、術語），外加兩項：
+   - **黑話檢查**：文件裡的內部代號（版本迭代號如 v48、規格編號如 §3.1、內部縮寫
+     如 T-SYM）必須在 overview 詞彙表有一行解釋，否則就地展開或刪除——新人看到
+     沒有錨點的代號等於死連結。
+   - **README 連結健檢**：掃 repo README 裡指向 docs/ 的相對連結與檔名引用，目標
+     不存在的列入最終報告（不自動改 README——它可能有自己的維護者，但斷鏈必須被
+     看見）。
+   再依 check playbook 驗證每份剛完成的文件——**首次 init 的全量自檢＝機械層
+   （mermaid-check、適用時 schema-diff／deps-check）＋逐條（檔案:行號）引用復核**，
+   不需重跑語意比對（文件剛從 code 推導出來，語意比對是在對自己）；發現自己寫錯的
    立即修正並重驗。全量自檢通過的文件逐一執行
    `node <SCRIPTS>/manifest.js set-verified --doc <path> --commit <目前 HEAD>`
    標記為已驗證。完整初始化模式下自檢不通過不得結束；`--repair` 模式不得重寫
