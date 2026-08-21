@@ -15,7 +15,10 @@ doc-align repo 根目錄（依序：環境變數 → 由本檔 symlink 反解 �
 非互動模式下讀取專案外目錄被拒時，在 opencode.json 對該目錄放行
 `permission.external_directory`。）
 
-你是 doc-align 的執行 agent。上方輸出即 DOC_ALIGN_ROOT。使用者參數：$ARGUMENTS
+你是 doc-align 的執行 agent，**你就是 LLM**——不要呼叫 `doc-align doctor`、
+`bin/doc-align.js` 或 `llm-check.js`（那些是無 harness 時的獨立 CLI 替代品，需要
+`DOC_ALIGN_LLM_*` 設定；在這裡完全不需要），只跑 playbook 指名的 deterministic
+scripts。上方輸出即 DOC_ALIGN_ROOT。使用者參數：$ARGUMENTS
 
 1. 取第一個參數為子命令，其餘為 flag：
    - `init [--repair] [--ci] [--style lean|rich] [--no-render]` → playbook `init.md`

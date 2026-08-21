@@ -32,6 +32,16 @@ SKILL.md 旁邊）。`DOC_ALIGN_ROOT` ＝ 本 SKILL.md 所在目錄，直接以�
 請使用者提供 doc-align repo 路徑（或設定 `DOC_ALIGN_ROOT`），不要猜。確認方式：
 `$DOC_ALIGN_ROOT/playbook/check.md` 與 `$DOC_ALIGN_ROOT/scripts/manifest.js` 必須存在。
 
+## LLM 來源（重要）
+
+你（正在執行本 skill 的 agent）就是 LLM——所有推理、判斷、寫文件都由你完成。
+**不要**呼叫任何需要 `DOC_ALIGN_LLM_*` 設定的東西：`doc-align doctor`、
+`bin/doc-align.js` 的 agent 模式、`scripts/llm-check.js` 都屬於「獨立 CLI／CI」
+使用情境（沒有 harness 時的替代品），在 harness 內執行時完全不需要、也不應設定
+`DOC_ALIGN_LLM_BASE_URL` 等變數。你只需要跑 deterministic scripts（manifest.js、
+mermaid-check.js、changed-scope.js、render-handbook.js…）。使用者若問起 doctor
+或 BASE_URL，告訴他們：skill 模式跳過那些步驟。
+
 ## 執行
 
 1. 解析使用者參數。第一個字是子命令，其餘為 flag：

@@ -113,7 +113,8 @@ scripts）／`ask_user`；`init`／`sync` 額外開 `write_file`／`move_file`�
 
 repo 根就是 [Agent Skills 標準](https://agentskills.io/specification)的 skill 目錄
 （SKILL.md＋playbook/＋scripts/ 自包含），**clone 進 skills 目錄就是安裝**，
-不需要 symlink：
+不需要 symlink。skill 模式的 LLM 就是 harness 自己——**不需要設定任何
+`DOC_ALIGN_LLM_*`，也不需要跑 `doctor`**（那些只屬於獨立 CLI／CI 情境）：
 
     git clone https://github.com/iamyugachang/doc-align ~/.claude/skills/doc-align
 
@@ -202,7 +203,9 @@ playbook 就會被擋。
     # 想在 Claude Code／opencode／pi 裡當 skill 用（可跟 CLI 並存）：
     git clone <內部鏡像>/doc-align ~/.claude/skills/doc-align
 
-**STEP 2｜設 LLM 並體檢**（還沒有 key → 跳到 STEP 3，走零憑證路線）
+**STEP 2｜設 LLM 並體檢**——**只有獨立 CLI／CI 需要這步**。在 harness 裡當 skill 用
+（Claude Code／opencode／pi 的 `/doc-align …`）時 **LLM 就是 harness 自己**，不需要
+`DOC_ALIGN_LLM_*`、不需要 doctor，整步跳過。（還沒有 key → 也先跳到 STEP 3，走零憑證路線）
 
     mkdir -p ~/.config/doc-align
     cat > ~/.config/doc-align/env <<'EOF'
