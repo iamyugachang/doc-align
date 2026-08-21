@@ -129,6 +129,13 @@ test('renderHandbook mermaid URL defaults to jsdelivr and is overridable for int
   assert.ok(dflt.includes('mermaid.run('));
 });
 
+test('renderHandbook ships the diagram lightbox (click-to-zoom) inline', () => {
+  const html = renderHandbook(DOCS, { repoName: 'demo', generatedAt: '', headSha: '' });
+  for (const marker of ['setupDiagramZoom', 'dz-overlay', 'zoomAt', 'addEventListener("wheel"', '.dz-close']) {
+    assert.ok(html.includes(marker), marker);
+  }
+});
+
 test('renderHandbook section header shows per-doc verification baseline', () => {
   const docs = [
     { path: 'overview.md', type: 'overview', md: '# 導讀', lastVerified: 'abc1234' },

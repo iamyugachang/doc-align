@@ -256,11 +256,21 @@ th { text-align:left; font-size:12px; letter-spacing:.06em; text-transform:upper
   color:var(--muted); border-bottom:2px solid var(--line); padding:9px 14px; white-space:nowrap; }
 td { border-bottom:1px solid var(--line); padding:9px 14px; vertical-align:top; }
 tr:last-child td { border-bottom:none; }
+.nav-toggle { display:none; }
 @media (max-width: 880px) {
   .layout { flex-direction:column; }
-  nav { width:100%; height:auto; position:static; border-right:none;
-    border-bottom:1px solid var(--line); }
-  .src { margin-left:0; }
+  nav { width:100%; height:auto; position:sticky; top:0; z-index:20; border-right:none;
+    border-bottom:1px solid var(--line); padding:10px 16px; }
+  nav .brand { display:flex; align-items:center; justify-content:space-between; margin:0; }
+  nav .brand .sub { display:none; }
+  .nav-toggle { display:inline-block; background:var(--code-bg); color:var(--ink);
+    border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:14px; cursor:pointer; }
+  .nav-body { display:none; max-height:calc(100vh - 120px); overflow-y:auto; margin-top:10px; }
+  nav.open .nav-body { display:block; }
+  main .inner { padding:20px 16px 60px; }
+  .sec-head { flex-wrap:wrap; row-gap:4px; }
+  .src { margin-left:0; word-break:break-all; }
+  .dz-bar button { min-width:42px; padding:8px 12px; font-size:16px; }
 }
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior:smooth; }
@@ -295,12 +305,138 @@ const MERMAID_BOOT = `
     // startOnLoad 不可靠（CDN 動態 import 下圖會默默不畫）。
     mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default" });
     await mermaid.run({ querySelector: "pre.mermaid" });
+    setupDiagramZoom();
   } catch (e) {
     document.querySelectorAll("pre.mermaid").forEach((el) => {
       el.style.whiteSpace = "pre";
       el.insertAdjacentHTML("beforebegin",
         "<p style='color:var(--muted);font-size:12.5px;margin:0 0 6px'>（離線模式：Mermaid 圖以原始碼顯示；連網後重新整理即可渲染）</p>");
     });
+  }
+
+  // 圖表 lightbox：點圖全螢幕，滾輪縮放（以游標為中心）、拖曳平移、+／−／重置、Esc 關閉。
+  function setupDiagramZoom() {
+    for (const pre of document.querySelectorAll("pre.mermaid")) {
+      const svg = pre.querySelector("svg");
+      if (!svg) continue;
+      pre.classList.add("dz-ready");
+      pre.title = "點擊放大（滾輪縮放、拖曳平移）";
+      pre.addEventListener("click", () => openZoom(svg));
+    }
+  }
+
+  function openZoom(srcSvg) {
+    const overlay = document.createElement("div");
+    overlay.className = "dz-overlay";
+    overlay.innerHTML = '<div class="dz-bar"><span class="dz-pct">100%</span>' +
+      '<button class="dz-out" title="縮小">−</button>' +
+      '<button class="dz-in" title="放大">＋</button>' +
+      '<button class="dz-reset" title="重置">100%</button>' +
+      '<button class="dz-close" title="關閉（Esc）">✕</button></div>' +
+      '<div class="dz-stage"><div class="dz-inner"></div></div>';
+    const stage = overlay.querySelector(".dz-stage");
+    const inner = overlay.querySelector(".dz-inner");
+    const pct = overlay.querySelector(".dz-pct");
+    const svg = srcSvg.cloneNode(true);
+    svg.removeAttribute("width");
+    svg.removeAttribute("height");
+    svg.style.maxWidth = "none";
+    const vb = svg.viewBox && svg.viewBox.baseVal;
+    if (vb && vb.width > 0) {
+      svg.style.width = vb.width + "px";
+      svg.style.height = vb.height + "px";
+    }
+    inner.appendChild(svg);
+    document.body.appendChild(overlay);
+    document.body.style.overflow = "hidden";
+
+    let s = 1; let tx = 0; let ty = 0;
+    const apply = () => {
+      inner.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + s + ")";
+      pct.textContent = Math.round(s * 100) + "%";
+    };
+    const fit = () => {
+      const sr = stage.getBoundingClientRect();
+      const w = svg.getBoundingClientRect().width / s || sr.width;
+      const h = svg.getBoundingClientRect().height / s || sr.height;
+      s = Math.min((sr.width - 48) / w, (sr.height - 48) / h, 1.5);
+      if (!isFinite(s) || s <= 0) s = 1;
+      tx = (sr.width - w * s) / 2; ty = (sr.height - h * s) / 2;
+      apply();
+    };
+    const zoomAt = (px, py, factor) => {
+      const next = Math.min(20, Math.max(0.15, s * factor));
+      tx = px - ((px - tx) * next) / s;
+      ty = py - ((py - ty) * next) / s;
+      s = next; apply();
+    };
+    const center = () => { const r = stage.getBoundingClientRect(); return [r.width / 2, r.height / 2]; };
+
+    stage.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const r = stage.getBoundingClientRect();
+      zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+    }, { passive: false });
+
+    // 拖曳平移＋雙指 pinch 縮放（觸控）
+    const pointers = new Map();
+    let drag = null; let pinchDist = 0;
+    const dist = () => {
+      const [a, b] = [...pointers.values()];
+      return Math.hypot(a[0] - b[0], a[1] - b[1]);
+    };
+    stage.addEventListener("pointerdown", (e) => {
+      pointers.set(e.pointerId, [e.clientX, e.clientY]);
+      stage.setPointerCapture(e.pointerId);
+      if (pointers.size === 1) {
+        drag = { x: e.clientX - tx, y: e.clientY - ty };
+        stage.classList.add("dragging");
+      } else if (pointers.size === 2) {
+        drag = null; pinchDist = dist();
+      }
+    });
+    stage.addEventListener("pointermove", (e) => {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pointers.size === 2 && pinchDist > 0) {
+        const d = dist();
+        const [a, b] = [...pointers.values()];
+        const r = stage.getBoundingClientRect();
+        zoomAt((a[0] + b[0]) / 2 - r.left, (a[1] + b[1]) / 2 - r.top, d / pinchDist);
+        pinchDist = d;
+      } else if (drag) {
+        tx = e.clientX - drag.x; ty = e.clientY - drag.y; apply();
+      }
+    });
+    const endPointer = (e) => {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinchDist = 0;
+      if (pointers.size === 0) { drag = null; stage.classList.remove("dragging"); }
+    };
+    stage.addEventListener("pointerup", endPointer);
+    stage.addEventListener("pointercancel", endPointer);
+    stage.addEventListener("dblclick", (e) => {
+      const r = stage.getBoundingClientRect();
+      zoomAt(e.clientX - r.left, e.clientY - r.top, 1.6);
+    });
+
+    const close = () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+      overlay.remove();
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+      else if (e.key === "+" || e.key === "=") zoomAt(...center(), 1.2);
+      else if (e.key === "-") zoomAt(...center(), 1 / 1.2);
+    };
+    document.addEventListener("keydown", onKey);
+    overlay.querySelector(".dz-close").addEventListener("click", close);
+    overlay.querySelector(".dz-in").addEventListener("click", () => zoomAt(...center(), 1.2));
+    overlay.querySelector(".dz-out").addEventListener("click", () => zoomAt(...center(), 1 / 1.2));
+    overlay.querySelector(".dz-reset").addEventListener("click", fit);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    fit();
   }
 `;
 
@@ -380,6 +516,15 @@ export function renderHandbook(docs, meta) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>${CSS}
 .sec-head .ver{opacity:.65;margin-left:6px}
+.diagram pre.mermaid.dz-ready{cursor:zoom-in}
+.dz-overlay{position:fixed;inset:0;background:rgba(8,10,14,.93);z-index:99;display:flex;flex-direction:column;touch-action:none}
+.dz-bar{display:flex;gap:8px;justify-content:flex-end;align-items:center;padding:10px 14px;color:#cfd6e4;font-size:13px}
+.dz-bar button{background:#2a3242;color:#e6ebf4;border:1px solid #3c4658;border-radius:6px;min-width:34px;padding:4px 10px;font-size:14px;cursor:pointer}
+.dz-bar button:hover{background:#39445a}
+.dz-stage{flex:1;overflow:hidden;position:relative;cursor:grab}
+.dz-stage.dragging{cursor:grabbing}
+.dz-inner{position:absolute;left:0;top:0;transform-origin:0 0}
+.dz-inner svg{display:block;max-width:none!important;background:#fff;border-radius:8px;padding:14px;user-select:none}
 .chip{display:inline-block;margin-top:4px;padding:1px 8px;border-radius:10px;font-size:11px;text-decoration:none}
 .chip-ok{background:#1a7f37;color:#fff}
 .chip-warn{background:#b35900;color:#fff}</style>
@@ -388,14 +533,30 @@ export function renderHandbook(docs, meta) {
 <div class="layout">
 <nav>
   <div class="brand"><div class="g">${escapeHtml(meta.repoName)} Handbook</div>
+  <button class="nav-toggle" aria-expanded="false" aria-controls="nav-body">☰ 目錄</button>
   <div class="sub">doc-align 文件集單頁閱讀版</div></div>
+  <div class="nav-body" id="nav-body">
   ${navParts.join('\n  ')}
   <div class="meta">${metaLines}</div>
+  </div>
 </nav>
 <main><div class="inner">
 ${driftSection}${sections.join('\n')}
 </div></main>
 </div>
+<script>
+(function () {
+  var t = document.querySelector(".nav-toggle"); var n = document.querySelector("nav");
+  if (!t || !n) return;
+  t.addEventListener("click", function () {
+    var open = n.classList.toggle("open");
+    t.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  n.addEventListener("click", function (e) {
+    if (e.target.closest("a")) { n.classList.remove("open"); t.setAttribute("aria-expanded", "false"); }
+  });
+})();
+</script>
 <script type="module">${MERMAID_BOOT.replace('__MERMAID_URL__', JSON.stringify(meta.mermaidUrl || DEFAULT_MERMAID_URL))}</script>
 </body>
 </html>
