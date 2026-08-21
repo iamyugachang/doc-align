@@ -219,7 +219,7 @@ nav a { color:var(--ink); text-decoration:none; font-size:14px; padding:4px 8px;
 nav a:hover { background:var(--code-bg); }
 nav a:focus-visible, main a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 main { flex:1; min-width:0; padding:44px clamp(20px,5vw,72px) 96px; }
-main .inner { max-width:78ch; }
+main .inner { max-width:82ch; margin:0 auto; }
 section { margin-bottom:72px; scroll-margin-top:24px; }
 .sec-head { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
   border-bottom:2px solid var(--line); padding-bottom:10px; margin-bottom:18px; }
