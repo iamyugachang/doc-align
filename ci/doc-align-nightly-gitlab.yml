@@ -45,8 +45,8 @@
 # /<slug>/drift.json（shields.io endpoint badge）；drift 永不 fail job。
 
 pages:
-  stage: deploy
-  image: node:20
+  stage: deploy   # 目標 repo 的 .gitlab-ci.yml 若自訂了 stages: 清單，需包含 deploy（或改這裡）
+  image: node:20  # runner 需為 docker／kubernetes executor；shell executor 會忽略 image，需自備 Node ≥ 18
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "web"   # 手動跑一次也可以（Run pipeline）
