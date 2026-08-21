@@ -102,6 +102,34 @@ test('chatComplete flattens array content and surfaces HTTP errors', async () =>
 
 // ── CLI end-to-end against a mock gateway ────────────────────────────────────
 
+test('chatComplete retries on 5xx when cfg.retries set; 4xx fails immediately', async () => {
+  let calls = 0;
+  const server = createServer((req, res) => {
+    calls += 1;
+    if (calls === 1) { res.statusCode = 503; res.end('busy'); return; }
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }));
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${server.address().port}/v1`;
+  try {
+    const text = await chatComplete({ baseUrl: base, apiKey: 'k', model: 'm', timeoutMs: 5000, retries: 1 }, [{ role: 'user', content: 'x' }]);
+    assert.equal(text, 'ok');
+    assert.equal(calls, 2, 'one retry after the 503');
+  } finally { server.close(); }
+
+  let authCalls = 0;
+  const authServer = createServer((req, res) => { authCalls += 1; res.statusCode = 401; res.end('no'); });
+  await new Promise((r) => authServer.listen(0, '127.0.0.1', r));
+  try {
+    await assert.rejects(
+      () => chatComplete({ baseUrl: `http://127.0.0.1:${authServer.address().port}/v1`, apiKey: 'k', model: 'm', timeoutMs: 5000, retries: 3 }, [{ role: 'user', content: 'x' }]),
+      /HTTP 401/,
+    );
+    assert.equal(authCalls, 1, '4xx is not retried');
+  } finally { authServer.close(); }
+});
+
 function initRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'docalign-llm-'));
   const git = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'pipe' });

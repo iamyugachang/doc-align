@@ -37,7 +37,8 @@ export function llmConfigFromEnv(env = process.env, { label = 'llm-check' } = {}
   if (!model) missing.push('DOC_ALIGN_LLM_MODEL');
   if (missing.length) throw new Error(`${label}: missing env ${missing.join(', ')}`);
   const timeoutMs = Number(env.DOC_ALIGN_LLM_TIMEOUT_MS || 300_000);
-  return { baseUrl, apiKey, model, timeoutMs };
+  const retries = Math.max(0, Number(env.DOC_ALIGN_LLM_RETRIES || 0));
+  return { baseUrl, apiKey, model, timeoutMs, retries };
 }
 
 // 部分 gateway 把 content 回成 [{type:'text', text}] 陣列；統一攤成字串。
@@ -49,7 +50,7 @@ export function contentToText(content) {
   return '';
 }
 
-async function postChat({ baseUrl, apiKey, model, timeoutMs = 300_000 }, body, fetchImpl, label) {
+async function postChatOnce({ baseUrl, apiKey, model, timeoutMs = 300_000 }, body, fetchImpl, label) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let resp;
@@ -62,12 +63,16 @@ async function postChat({ baseUrl, apiKey, model, timeoutMs = 300_000 }, body, f
     });
   } catch (err) {
     clearTimeout(timer);
-    throw new Error(`${label}: request failed: ${err?.name === 'AbortError' ? `timeout after ${timeoutMs}ms` : err.message}`);
+    const e = new Error(`${label}: request failed: ${err?.name === 'AbortError' ? `timeout after ${timeoutMs}ms` : err.message}`);
+    e.retryable = true; // timeout 與網路層錯誤都值得重試
+    throw e;
   }
   clearTimeout(timer);
   const raw = await resp.text();
   if (!resp.ok) {
-    throw new Error(`${label}: HTTP ${resp.status} from ${baseUrl}/chat/completions: ${raw.slice(0, 500)}`);
+    const e = new Error(`${label}: HTTP ${resp.status} from ${baseUrl}/chat/completions: ${raw.slice(0, 500)}`);
+    e.retryable = resp.status === 429 || resp.status >= 500; // 4xx（憑證／參數錯）重試無意義
+    throw e;
   }
   let data;
   try {
@@ -78,6 +83,26 @@ async function postChat({ baseUrl, apiKey, model, timeoutMs = 300_000 }, body, f
   const msg = data?.choices?.[0]?.message;
   if (!msg) throw new Error(`${label}: response has no choices[0].message: ${raw.slice(0, 300)}`);
   return { message: msg, usage: data.usage || null, finishReason: data.choices[0].finish_reason || null };
+}
+
+// 重試包裝：DOC_ALIGN_LLM_RETRIES（預設 0＝關閉）。只重試 timeout／網路錯誤／429／5xx，
+// 憑證與參數錯（其他 4xx）立即失敗。每次重試前退避 2s×次數，進度印到 stderr。
+async function postChat(cfg, body, fetchImpl, label) {
+  const retries = cfg.retries ?? 0;
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    if (attempt > 0) {
+      process.stderr.write(`${label}: 重試 ${attempt}/${retries}（${String(lastErr.message).slice(0, 160)}）\n`);
+      await new Promise((r) => { setTimeout(r, 2_000 * attempt); });
+    }
+    try {
+      return await postChatOnce(cfg, body, fetchImpl, label);
+    } catch (err) {
+      lastErr = err;
+      if (!err.retryable || attempt === retries) throw err;
+    }
+  }
+  throw lastErr;
 }
 
 export async function chatComplete(cfg, messages, fetchImpl = globalThis.fetch) {

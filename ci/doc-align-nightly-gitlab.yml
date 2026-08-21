@@ -31,6 +31,8 @@
 #   DOC_ALIGN_PAGES_REFS    — 空白分隔的 branch 白名單（未設＝只發 default branch）
 #   DOC_ALIGN_LLM_BASE_URL／DOC_ALIGN_LLM_API_KEY（Masked）／DOC_ALIGN_LLM_MODEL
 #     （沒設憑證也能跑：只發佈 handbook，drift 狀態顯示「未設定」）
+#   DOC_ALIGN_LLM_TIMEOUT_MS — 選配：單次請求逾時，預設 300000；gateway 慢就調高
+#   DOC_ALIGN_LLM_RETRIES   — 選配：timeout／429／5xx 自動重試次數，預設 0；不穩建議 2
 #   DOC_ALIGN_NIGHTLY_MODE  — 選配：full＝內建 agent loop 全量重驗（需 tool calling）
 #   DOC_ALIGN_PAGES_ON_PUSH — 選配：true＝docs/ 有變動的 push 也觸發發佈（階段 1 用）
 #   DOC_ALIGN_REPO_URL      — 選配：內網連不到 GitHub 時指向 doc-align 內部鏡像

@@ -66,6 +66,8 @@ jobs:
           DOC_ALIGN_LLM_BASE_URL: ${{ vars.DOC_ALIGN_LLM_BASE_URL }}
           DOC_ALIGN_LLM_MODEL: ${{ vars.DOC_ALIGN_LLM_MODEL }}
           DOC_ALIGN_LLM_RUNNER: ${{ vars.DOC_ALIGN_LLM_RUNNER }}
+          DOC_ALIGN_LLM_TIMEOUT_MS: ${{ vars.DOC_ALIGN_LLM_TIMEOUT_MS }}
+          DOC_ALIGN_LLM_RETRIES: ${{ vars.DOC_ALIGN_LLM_RETRIES }}
           RANGE: ${{ steps.gate.outputs.range }}
         run: |
           if [ "$DOC_ALIGN_LLM_RUNNER" = "agent" ]; then

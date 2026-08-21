@@ -82,7 +82,8 @@ ADR／Google style）已蒸餾在 `playbook/writing.md`，**不裝任何 skill �
 | `DOC_ALIGN_LLM_BASE_URL` | OpenAI-compatible endpoint，**含 `/v1`** | 公司內部 gateway `https://llm.internal/v1`；OpenAI `https://api.openai.com/v1`；Anthropic（OpenAI 相容層）`https://api.anthropic.com/v1`；OpenRouter `https://openrouter.ai/api/v1`；本機 Ollama `http://localhost:11434/v1` |
 | `DOC_ALIGN_LLM_API_KEY` | 該 endpoint 的 key（唯一 secret，中立命名） | Ollama 隨便填非空字串 |
 | `DOC_ALIGN_LLM_MODEL` | model id | `gpt-4o`／`claude-sonnet-4-5`／`anthropic/claude-sonnet-4.5`／`qwen2.5-coder` |
-| `DOC_ALIGN_LLM_TIMEOUT_MS` | 選配：單次請求逾時，預設 300000 | |
+| `DOC_ALIGN_LLM_TIMEOUT_MS` | 選配：單次請求逾時，預設 300000（5 分鐘）；gateway 慢就調高，如 `600000` | |
+| `DOC_ALIGN_LLM_RETRIES` | 選配：自動重試次數，預設 0（關閉）。只重試 timeout／網路錯誤／429／5xx，每次退避 2s×次數；gateway 不穩建議設 `2` | |
 | `DOC_ALIGN_AGENT_MAX_CONTEXT_CHARS` | 選配：agent 模式上下文字元預算，預設 400000（超過時從最舊的工具輸出開始省略） | |
 | `DOC_ALIGN_AGENT_MAX_TURNS` | 選配：agent 迴圈上限，預設 60（`--max-turns` 可覆寫） | |
 
