@@ -437,7 +437,7 @@ job（這是 lint，不是 drift 報告）。
 | `schema-diff.js` | erDiagram 對 SQL migrations 的表／欄位差異 | `node scripts/schema-diff.js --doc docs/db-schema.md --sql <file-or-dir>` |
 | `deps-check.js` | layers 文件的分層依賴機械驗證：掃 Python／JS/TS import 圖，對照層級表＋flowchart 允許邊，列反向依賴 | `node scripts/deps-check.js --doc docs/layers.md [--py-root <dir>]` |
 | `changed-scope.js` | 依 manifest watch 算出受影響文件（增量／`--range`／`--full`） | `node scripts/changed-scope.js [--range <git range>] [--full]` |
-| `ci-gate.js` | PR 廉價閘門：`skip`、`affectedDocs`、`changedDocs`（docs 內變動的 .md） | `node scripts/ci-gate.js --base <ref>`（或 `--range`） |
+| `ci-gate.js` | PR 廉價閘門：`skip`、`affectedDocs`、`changedDocs`（docs 內變動的 .md） | `node scripts/ci-gate.js --base <ref>` |
 | `llm-check.js` | direct 模式 drift check：打包文件＋diff＋證據片段直打 OpenAI-compatible API | `node scripts/llm-check.js (--range <git range> \| --incremental) [--out <path>]`；`--incremental`＝各文件自 `last_verified` 起算（nightly 用）；env `DOC_ALIGN_LLM_BASE_URL`／`_API_KEY`／`_MODEL`［／`_MAX_CHARS`／`_TIMEOUT_MS`］ |
 | `../bin/doc-align.js` | 獨立 CLI（agent loop；見上方「安裝（獨立 CLI）」） | `node bin/doc-align.js init\|sync [--dry-run] …`（別名 check／render／configure）；agent 零件在 `scripts/lib/agent-{loop,tools,prompt}.js`，可被自帶 harness 重用 |
 | `llm-doctor.js` | 封閉環境部署前診斷：Node／git／env／gateway 的 chat 與 tools 相容性，附排查提示 | `node scripts/llm-doctor.js`（＝`doc-align doctor`）；chat 探測失敗 exit 1 |
