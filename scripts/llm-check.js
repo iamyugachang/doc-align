@@ -23,7 +23,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { changedScope } from './changed-scope.js';
 import { loadManifest } from './manifest.js';
-import { chatComplete, llmConfigFromEnv } from './lib/llm-client.js';
+import { chatComplete, llmConfigFromEnv, loadEnvFile } from './lib/llm-client.js';
 import {
   buildCheckPrompt, buildSystemPrompt, extractCitations, extractReportFormat, sliceLines,
 } from './lib/check-context.js';
@@ -85,7 +85,7 @@ async function main() {
         : '無 drift，文件與程式碼對齊（本次變動未觸及任何文件的 watch 範圍，未呼叫 LLM）。');
     }
   } else {
-    const cfg = llmConfigFromEnv();
+    const cfg = llmConfigFromEnv(loadEnvFile());
     const formatSection = extractReportFormat(readFileSync(join(HERE, '..', 'playbook', 'check.md'), 'utf8'));
     const system = buildSystemPrompt(formatSection);
     const maxChars = Number(process.env.DOC_ALIGN_LLM_MAX_CHARS || 60_000);

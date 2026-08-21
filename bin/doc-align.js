@@ -241,6 +241,12 @@ async function main() {
     return 1;
   }
   if (o.chdir) process.chdir(o.chdir);
+  // ~/.config/doc-align/env 在此統一併入 process.env（環境變數優先、檔案補缺），
+  // 讓 doctor／llm-check 等子程序也吃得到——README 承諾的「啟動時自動讀取」對所有子命令成立。
+  const mergedEnv = loadEnvFile(process.env);
+  for (const k of Object.keys(mergedEnv)) {
+    if (!(k in process.env) || process.env[k] === '') process.env[k] = mergedEnv[k];
+  }
   if (o.sub === 'doctor') return (await runNode('llm-doctor.js', [], { inherit: true })).code;
   if (o.sub === 'render') return cmdRender(o);
   if (o.sub === 'sync' && o.dryRun && o.direct) return cmdCheckDirect(o);

@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const SCRIPT = new URL('../scripts/llm-doctor.js', import.meta.url).pathname;
 
@@ -58,6 +61,24 @@ test('doctor: gateway rejects tools → chat ok (direct mode), tools flagged, st
     assert.equal(json.results.chat.ok, true);
     assert.equal(json.results.tools.ok, false);
     assert.match(stderr, /direct 模式/);
+  } finally { server.close(); }
+});
+
+test('doctor: reads ~/.config/doc-align/env when shell vars are absent, and labels the source', async () => {
+  const server = await mockGateway();
+  const fakeHome = mkdtempSync(join(tmpdir(), 'docalign-doctor-'));
+  mkdirSync(join(fakeHome, '.config', 'doc-align'), { recursive: true });
+  writeFileSync(join(fakeHome, '.config', 'doc-align', 'env'),
+    `DOC_ALIGN_LLM_BASE_URL=http://127.0.0.1:${server.address().port}/v1\n` +
+    'DOC_ALIGN_LLM_API_KEY=file-key\nDOC_ALIGN_LLM_MODEL=file-model\n');
+  try {
+    const { code, json, stderr } = await runDoctor({
+      HOME: fakeHome,
+      DOC_ALIGN_LLM_BASE_URL: '', DOC_ALIGN_LLM_API_KEY: '', DOC_ALIGN_LLM_MODEL: '',
+    });
+    assert.equal(code, 0, stderr);
+    assert.equal(json.results.chat.ok, true);
+    assert.match(stderr, /設定檔/);
   } finally { server.close(); }
 });
 

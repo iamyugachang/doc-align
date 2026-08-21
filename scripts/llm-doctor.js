@@ -12,8 +12,13 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { loadEnvFile } from './lib/llm-client.js';
 
-const TIMEOUT = Number(process.env.DOC_ALIGN_LLM_TIMEOUT_MS || 30_000);
+const ENV_FILE = join(homedir(), '.config', 'doc-align', 'env');
+const env = loadEnvFile(process.env);
+const TIMEOUT = Number(env.DOC_ALIGN_LLM_TIMEOUT_MS || 30_000);
 const results = {};
 const lines = [];
 
@@ -56,15 +61,17 @@ try {
   report('git', false, 'git 不可用', '安裝 git，drift check 依賴 git diff');
 }
 
-// 2. env
-const baseUrl = (process.env.DOC_ALIGN_LLM_BASE_URL || '').replace(/\/$/, '');
-const apiKey = process.env.DOC_ALIGN_LLM_API_KEY || '';
-const model = process.env.DOC_ALIGN_LLM_MODEL || '';
-report('env_base_url', !!baseUrl, baseUrl ? `DOC_ALIGN_LLM_BASE_URL = ${baseUrl}` : 'DOC_ALIGN_LLM_BASE_URL 未設定',
+// 2. env（環境變數優先，~/.config/doc-align/env 補缺——與 CLI 各子命令一致）
+const src = (key) => (process.env[key] ? '環境變數' : `設定檔 ${ENV_FILE}`);
+lines.push(existsSync(ENV_FILE) ? `ℹ️  設定檔存在：${ENV_FILE}` : `ℹ️  無設定檔（${ENV_FILE}），只看環境變數`);
+const baseUrl = (env.DOC_ALIGN_LLM_BASE_URL || '').replace(/\/$/, '');
+const apiKey = env.DOC_ALIGN_LLM_API_KEY || '';
+const model = env.DOC_ALIGN_LLM_MODEL || '';
+report('env_base_url', !!baseUrl, baseUrl ? `DOC_ALIGN_LLM_BASE_URL = ${baseUrl}（${src('DOC_ALIGN_LLM_BASE_URL')}）` : 'DOC_ALIGN_LLM_BASE_URL 未設定',
   '設定 OpenAI-compatible endpoint（含 /v1）；可放 ~/.config/doc-align/env');
-report('env_api_key', !!apiKey, apiKey ? `DOC_ALIGN_LLM_API_KEY = ${apiKey.slice(0, 4)}…（${apiKey.length} 字元）` : 'DOC_ALIGN_LLM_API_KEY 未設定',
-  '設定該 endpoint 的 key（本機 Ollama 隨便填非空字串）');
-report('env_model', !!model, model ? `DOC_ALIGN_LLM_MODEL = ${model}` : 'DOC_ALIGN_LLM_MODEL 未設定',
+report('env_api_key', !!apiKey, apiKey ? `DOC_ALIGN_LLM_API_KEY = ${apiKey.slice(0, 4)}…（${apiKey.length} 字元，${src('DOC_ALIGN_LLM_API_KEY')}）` : 'DOC_ALIGN_LLM_API_KEY 未設定',
+  '設定該 endpoint 的 key（本機 Ollama 隨便填非空字串）；寫在 shell rc 檔的 export 要開新終端機或 source 後才生效');
+report('env_model', !!model, model ? `DOC_ALIGN_LLM_MODEL = ${model}（${src('DOC_ALIGN_LLM_MODEL')}）` : 'DOC_ALIGN_LLM_MODEL 未設定',
   '照 gateway 的模型清單填 model id');
 if (baseUrl && !/\/v\d+$/.test(baseUrl)) {
   lines.push(`⚠️  BASE_URL 結尾不是 /v1——多數 OpenAI-compatible gateway 需要（實際打 ${baseUrl}/chat/completions）`);
