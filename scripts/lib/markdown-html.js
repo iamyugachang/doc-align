@@ -276,8 +276,25 @@ const MERMAID_BOOT = `
     (document.documentElement.dataset.theme !== "light" &&
      window.matchMedia("(prefers-color-scheme: dark)").matches);
   try {
-    const { default: mermaid } = await import(__MERMAID_URL__);
-    mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "default" });
+    // .mjs → ESM 動態 import（CDN／鏡像）；其他 → classic <script>（vendored IIFE 單檔
+    // mermaid.min.js 只在非 module 作用域才會掛上 globalThis，不能用 import() 載）。
+    const url = __MERMAID_URL__;
+    let mermaid;
+    if (url.endsWith(".mjs")) {
+      ({ default: mermaid } = await import(url));
+    } else {
+      await new Promise((res, rej) => {
+        const s = document.createElement("script");
+        s.src = url; s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+      mermaid = window.mermaid;
+    }
+    if (!mermaid) throw new Error("mermaid unavailable");
+    // 顯式 run()：本 script 是 module，執行時 DOMContentLoaded 可能已過，
+    // startOnLoad 不可靠（CDN 動態 import 下圖會默默不畫）。
+    mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default" });
+    await mermaid.run({ querySelector: "pre.mermaid" });
   } catch (e) {
     document.querySelectorAll("pre.mermaid").forEach((el) => {
       el.style.whiteSpace = "pre";

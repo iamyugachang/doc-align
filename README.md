@@ -302,9 +302,18 @@ LLM 的 render（確定性，跟本地 skill 生的 handbook 相同）；手動 
 push 後 Pages 即更新。階段 2 拿到憑證後設 `DOC_ALIGN_LLM_*`＋建 schedule，yml 不用改。
 
 **自建 GitLab**：instance 需由 admin 啟用 Pages（`pages_external_url`）——專案側欄
-有 Deploy → Pages 即可用，網址也在那頁；沒開就先用 job artifact 過渡。內網連不到
-jsdelivr CDN 時設 `DOC_ALIGN_MERMAID_URL` 指向內部鏡像的 mermaid ESM 檔（CLI 對應
-`render --mermaid-url`），否則圖以原始碼顯示、其他內容不受影響。
+有 Deploy → Pages 即可用，網址也在那頁；沒開就先用 job artifact 過渡。
+
+**離線 Mermaid（內網建議直接 vendor）**：handbook 預設從 jsdelivr CDN 載 mermaid，
+內網連不到時圖會以原始碼顯示。把單檔 UMD 版放進目標 repo 一次即可完全離線：
+
+    curl -L -o docs/mermaid.min.js https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js
+    # 內網改從內部 npm registry 取：npm pack mermaid 解開後拿 dist/mermaid.min.js
+
+`docs/mermaid.min.js` 存在時 render **自動偵測改用它**（本地、CI、Pages 皆同；輸出
+到別處時會一併複製到 handbook 旁），完全不碰 CDN、零設定。不想 vendor 也可設
+`DOC_ALIGN_MERMAID_URL`／`render --mermaid-url` 指向內部鏡像 URL（`.mjs`＝ESM
+import、其他＝classic script 載入）。
 
 同一 repo 同時推 GitHub 與內部 GitLab 時，兩份 CI 檔一起進版控即可——
 GitHub 只讀 `.github/workflows/`、GitLab 只讀 `.gitlab-ci.yml`，互不干擾。
@@ -392,7 +401,8 @@ pre-commit 範例（只跑機械層、零 LLM）：
 - 兩個可選的外部來源，公司政策不允許就避開：(1) CI 的 `opencode`／`claude` runner 會
   `curl | bash` 或 `npm install -g` 安裝 agent CLI——用 `direct`／`agent` runner 就完全不需要；
   (2) `render` 產出的 handbook 在瀏覽器端從 jsdelivr CDN 載入 mermaid.js 畫圖（離線時顯示原始碼），
-  不影響 CLI／CI 本身；內網可設 `DOC_ALIGN_MERMAID_URL`（或 `render --mermaid-url`）改指內部鏡像。
+  不影響 CLI／CI 本身；內網把 UMD 單檔放進目標 repo 的 `docs/mermaid.min.js` 即自動改用（零 CDN），
+  或設 `DOC_ALIGN_MERMAID_URL` 指內部鏡像。
 - 內網拉不到 GitHub：clone 一份到內部 GitLab 當鏡像，CI 設 `DOC_ALIGN_REPO_URL`，CLI 直接 clone
   鏡像後 `npm link`；整個工具就是這個 repo，沒有其他下載步驟。
 

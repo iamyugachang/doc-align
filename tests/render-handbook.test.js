@@ -117,12 +117,16 @@ test('renderHandbook provenance shows branch and drift meta renders chip + secti
 
 test('renderHandbook mermaid URL defaults to jsdelivr and is overridable for intranet mirrors', () => {
   const dflt = renderHandbook(DOCS, { repoName: 'demo', generatedAt: '', headSha: '' });
-  assert.ok(dflt.includes('import("https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs")'));
+  assert.ok(dflt.includes('"https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"'));
   const mirrored = renderHandbook(DOCS, {
     repoName: 'demo', generatedAt: '', headSha: '', mermaidUrl: 'https://npm.internal/mermaid.mjs',
   });
-  assert.ok(mirrored.includes('import("https://npm.internal/mermaid.mjs")'));
+  assert.ok(mirrored.includes('"https://npm.internal/mermaid.mjs"'));
   assert.ok(!mirrored.includes('jsdelivr'));
+  // 非 .mjs（vendored IIFE 單檔）走 classic <script>，.mjs 走動態 import——boot 必須兩者兼備
+  assert.ok(dflt.includes('endsWith(".mjs")'));
+  assert.ok(dflt.includes('createElement("script")'));
+  assert.ok(dflt.includes('mermaid.run('));
 });
 
 test('renderHandbook without drift meta has no chip or drift section', () => {
@@ -168,6 +172,37 @@ test('render-handbook.js --branch and --drift-report wire into the page and the 
   assert.ok(html.includes('branch <code>feat/nightly</code>'));
   assert.ok(html.includes('chip chip-ok'));
   assert.ok(html.includes('id="drift-report"'));
+});
+
+test('render-handbook.js auto-detects vendored docs/mermaid.min.js and copies it beside --out', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'docalign-render-'));
+  mkdirSync(join(dir, 'docs'));
+  mkdirSync(join(dir, 'site'));
+  writeFileSync(join(dir, 'docs', '.docalign.yml'),
+    '# managed by doc-align\ndocs:\n  - path: overview.md\n    type: overview\n');
+  writeFileSync(join(dir, 'docs', 'overview.md'), '# 導讀\n\n哈囉');
+  writeFileSync(join(dir, 'docs', 'mermaid.min.js'), '/* vendored mermaid stub */');
+
+  // 預設輸出 docs/handbook.html：同層，不需複製
+  let result = JSON.parse(execFileSync('node', [SCRIPT], { cwd: dir }).toString());
+  assert.equal(result.mermaid, './mermaid.min.js');
+  assert.equal(result.mermaidCopiedTo, undefined);
+  let html = readFileSync(join(dir, result.out), 'utf8');
+  assert.ok(html.includes('"./mermaid.min.js"'));
+  assert.ok(!html.includes('jsdelivr'));
+
+  // 輸出到別處（CI 的 public/<slug>/ 情境）：自動複製到 handbook 旁
+  result = JSON.parse(
+    execFileSync('node', [SCRIPT, '--out', 'site/index.html'], { cwd: dir }).toString(),
+  );
+  assert.equal(result.mermaidCopiedTo, join('site', 'mermaid.min.js'));
+  assert.equal(readFileSync(join(dir, 'site', 'mermaid.min.js'), 'utf8'), '/* vendored mermaid stub */');
+
+  // 顯式 --mermaid-url 優先於 vendored 慣例
+  result = JSON.parse(
+    execFileSync('node', [SCRIPT, '--mermaid-url', 'https://npm.internal/m.mjs'], { cwd: dir }).toString(),
+  );
+  assert.equal(result.mermaid, 'https://npm.internal/m.mjs');
 });
 
 test('render-handbook.js exits 1 without a manifest', () => {

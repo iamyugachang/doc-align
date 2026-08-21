@@ -8,7 +8,9 @@
 //   --drift-report：把 check 產出的 drift 報告（markdown）一併渲染進 handbook，
 //             側欄出現狀態 chip（無 drift＝綠／有 drift 待裁決＝橘）＋「Drift 報告」節。
 //   --mermaid-url（或 env DOC_ALIGN_MERMAID_URL）：內網連不到 jsdelivr CDN 時
-//             改指內部鏡像的 mermaid ESM 檔；載入失敗圖以原始碼顯示。
+//             改指內部鏡像的 mermaid 檔（ESM 或 UMD 皆可）；載入失敗圖以原始碼顯示。
+//   離線慣例：目標 repo 放了 docs/mermaid.min.js（UMD 單檔）時自動改用它並隨
+//             handbook 複製，零設定、完全不碰 CDN。
 // 輸出 JSON 摘要到 stdout：{ ok, out, sections, skipped, branch, drift }。
 //
 // 純機械步驟：讀 manifest → 讀各文件 md → markdown-html.js 轉換 → 寫檔。
@@ -16,8 +18,8 @@
 // 缺檔屬 check 的 drift 範疇，render 不重複裁決）。
 
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { basename, resolve } from 'node:path';
+import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { loadManifest } from './manifest.js';
 import { convertMarkdown, renderHandbook } from './lib/markdown-html.js';
 
@@ -101,6 +103,19 @@ if (opts.driftReport) {
   };
 }
 
+// vendored mermaid 慣例：目標 repo 的 docs/mermaid.min.js（UMD 單檔）存在且未顯式指定
+// URL 時自動改用它——完全離線，不碰 CDN。輸出到 docs/ 以外（如 CI 的 public/<slug>/）
+// 時把該檔複製到 handbook 旁，讓相對路徑照樣成立。
+let vendoredCopy = null;
+if (!opts.mermaidUrl && existsSync('docs/mermaid.min.js')) {
+  opts.mermaidUrl = './mermaid.min.js';
+  const dest = join(dirname(opts.out), 'mermaid.min.js');
+  if (resolve(dest) !== resolve('docs/mermaid.min.js')) {
+    copyFileSync('docs/mermaid.min.js', dest);
+    vendoredCopy = dest;
+  }
+}
+
 const html = renderHandbook(docs, {
   repoName: basename(resolve('.')),
   generatedAt: `${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`,
@@ -118,4 +133,6 @@ console.log(JSON.stringify({
   skipped,
   branch,
   drift: drift ? { ok: drift.ok } : null,
+  mermaid: opts.mermaidUrl || 'cdn',
+  ...(vendoredCopy ? { mermaidCopiedTo: vendoredCopy } : {}),
 }, null, 2));
